@@ -8,8 +8,23 @@ L'objectif  de  ce  projet  est  d’implémenter  une  sous  partie  d'un  édi
 
 ## Membres du groupe
 
-* Extrant Robin
-* Omel Jocelyn
-* Raynaud Paul
-* Sorin Gaëtan
-* Visage Yohan
+* Extrant Robin ([RobinExtrant](https://github.com/RobinExtrant))
+* Omel Jocelyn ([Konemi](https://github.com/Konemi))
+* Raynaud Paul ([plokier](https://github.com/plokier))
+* Sorin Gaëtan ([Oloar](https://github.com/Oloar))
+* Visage Yohan ([visagey](https://github.com/visagey))
+
+## Liste des tâches
+
+### Phase 1
+- [ ] Étape 1 : Affichage de l’en-tête
+- [ ] Étape 2 : Affichage de la table des sections
+- [ ] Étape 3 : Affichage du contenu d’une section
+- [ ] Étape 4 : Affichage de la table des symboles
+- [ ] Étape 5 : Affichage des tables de réimplantation
+
+### Phase 2
+- [ ] Étape 6 : Fusion et renumérotation des sections
+- [ ] Étape 7 : Fusion, renumérotation et correction des symboles
+- [ ] Étape 8 : Fusion et correction des tables de réimplantations
+- [ ] Étape 9 : Production d’un fichier résultat au format ELF
