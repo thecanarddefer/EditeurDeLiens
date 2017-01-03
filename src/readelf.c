@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -11,13 +10,8 @@
 int main(int argc, char *argv[])
 {
 	int fd;
-#ifdef __LP64__
-	Elf64_Ehdr *hdr = malloc(sizeof(Elf64_Ehdr));
-	Elf64_Shdr **shdr;
-#else
-	Elf32_Ehdr *hdr = malloc(sizeof(Elf32_Ehdr));
+	Elf32_Ehdr *ehdr;
 	Elf32_Shdr **shdr;
-#endif
 
 	if(argc <= 1)
 	{
@@ -32,84 +26,74 @@ int main(int argc, char *argv[])
 		return 2;
 	}
 
-	read_header(fd, hdr);
-	shdr = malloc(sizeof(Elf32_Shdr*) * hdr->e_shnum);
-	for(int i = 0; i < hdr->e_shnum; i++)
-#ifdef __LP64__
-		shdr[i] = malloc(sizeof(Elf64_Shdr));
-#else
+	ehdr = malloc(sizeof(Elf32_Ehdr));
+	read_header(fd, ehdr);
+	dump_header(ehdr);
+
+	shdr = malloc(sizeof(Elf32_Shdr*) * ehdr->e_shnum);
+	for(int i = 0; i < ehdr->e_shnum; i++)
 		shdr[i] = malloc(sizeof(Elf32_Shdr));
-#endif
-	read_section_header(fd, hdr, shdr);
-	dumpelf(hdr);
+	read_section_header(fd, ehdr, shdr);
 
 	close(fd);
-	free(hdr);
+	for(int i = 0; i < ehdr->e_shnum; i++)
+		free(shdr[i]);
+	free(ehdr);
+	free(shdr);
+
 	return 0;
 }
 
-#ifdef __LP64__
-int read_header(int fd, Elf64_Ehdr *hdr)
-#else
-int read_header(int fd, Elf32_Ehdr *hdr)
-#endif
+int read_header(int fd, Elf32_Ehdr *ehdr)
 {
-	read(fd, hdr->e_ident, EI_NIDENT);
-	if(hdr->e_ident[0] != ELFMAG0 || hdr->e_ident[1] != ELFMAG1 || hdr->e_ident[2] != ELFMAG2 || hdr->e_ident[3] != ELFMAG3)
+	read(fd, ehdr->e_ident, EI_NIDENT);
+	if(ehdr->e_ident[0] != ELFMAG0 || ehdr->e_ident[1] != ELFMAG1 || ehdr->e_ident[2] != ELFMAG2 || ehdr->e_ident[3] != ELFMAG3 || ehdr->e_ident[EI_CLASS] != ELFCLASS32)
 	{
-		fprintf(stderr, "Le fichier n'est pas de type ELF.\n");
-		exit(2);
+		fprintf(stderr, "Le fichier n'est pas de type ELF32.\n");
+		exit(3);
 	}
 
-	read(fd, &hdr->e_type, sizeof(hdr->e_type));
-	read(fd, &hdr->e_machine, sizeof(hdr->e_machine));
-	read(fd, &hdr->e_version, sizeof(hdr->e_version));
-	read(fd, &hdr->e_entry, sizeof(hdr->e_entry));
-	read(fd, &hdr->e_phoff, sizeof(hdr->e_phoff));
-	read(fd, &hdr->e_shoff, sizeof(hdr->e_shoff));
-	read(fd, &hdr->e_flags, sizeof(hdr->e_flags));
-	read(fd, &hdr->e_ehsize, sizeof(hdr->e_ehsize));
-	read(fd, &hdr->e_phentsize, sizeof(hdr->e_phentsize));
-	read(fd, &hdr->e_phnum, sizeof(hdr->e_phnum));
-	read(fd, &hdr->e_shentsize, sizeof(hdr->e_shentsize));
-	read(fd, &hdr->e_shnum, sizeof(hdr->e_shnum));
-	read(fd, &hdr->e_shstrndx, sizeof(hdr->e_shstrndx));
+	read(fd, &ehdr->e_type,      sizeof(ehdr->e_type));
+	read(fd, &ehdr->e_machine,   sizeof(ehdr->e_machine));
+	read(fd, &ehdr->e_version,   sizeof(ehdr->e_version));
+	read(fd, &ehdr->e_entry,     sizeof(ehdr->e_entry));
+	read(fd, &ehdr->e_phoff,     sizeof(ehdr->e_phoff));
+	read(fd, &ehdr->e_shoff,     sizeof(ehdr->e_shoff));
+	read(fd, &ehdr->e_flags,     sizeof(ehdr->e_flags));
+	read(fd, &ehdr->e_ehsize,    sizeof(ehdr->e_ehsize));
+	read(fd, &ehdr->e_phentsize, sizeof(ehdr->e_phentsize));
+	read(fd, &ehdr->e_phnum,     sizeof(ehdr->e_phnum));
+	read(fd, &ehdr->e_shentsize, sizeof(ehdr->e_shentsize));
+	read(fd, &ehdr->e_shnum,     sizeof(ehdr->e_shnum));
+	read(fd, &ehdr->e_shstrndx,  sizeof(ehdr->e_shstrndx));
 
 	return 0;
 }
 
-#ifdef __LP64__
-int read_section_header(int fd, Elf64_Ehdr *hdr, Elf64_Shdr **shdr)
-#else
-int read_section_header(int fd, Elf32_Ehdr *hdr, Elf32_Shdr **shdr)
-#endif
+int read_section_header(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr)
 {
-	for(int i = 0; i < hdr->e_shnum; i++)
+	for(int i = 0; i < ehdr->e_shnum; i++)
 	{
-		lseek(fd, hdr->e_shoff + i*hdr->e_shentsize, SEEK_SET);
-		read(fd, &shdr[i]->sh_name, sizeof(shdr[i]->sh_name));
-		read(fd, &shdr[i]->sh_type, sizeof(shdr[i]->sh_type));
-		read(fd, &shdr[i]->sh_flags, sizeof(shdr[i]->sh_flags));
-		read(fd, &shdr[i]->sh_addr, sizeof(shdr[i]->sh_addr));
-		read(fd, &shdr[i]->sh_offset, sizeof(shdr[i]->sh_offset));
-		read(fd, &shdr[i]->sh_size, sizeof(shdr[i]->sh_size));
-		read(fd, &shdr[i]->sh_link, sizeof(shdr[i]->sh_link));
-		read(fd, &shdr[i]->sh_info, sizeof(shdr[i]->sh_info));
+		lseek(fd, ehdr->e_shoff + i * ehdr->e_shentsize, SEEK_SET);
+		read(fd, &shdr[i]->sh_name,      sizeof(shdr[i]->sh_name));
+		read(fd, &shdr[i]->sh_type,      sizeof(shdr[i]->sh_type));
+		read(fd, &shdr[i]->sh_flags,     sizeof(shdr[i]->sh_flags));
+		read(fd, &shdr[i]->sh_addr,      sizeof(shdr[i]->sh_addr));
+		read(fd, &shdr[i]->sh_offset,    sizeof(shdr[i]->sh_offset));
+		read(fd, &shdr[i]->sh_size,      sizeof(shdr[i]->sh_size));
+		read(fd, &shdr[i]->sh_link,      sizeof(shdr[i]->sh_link));
+		read(fd, &shdr[i]->sh_info,      sizeof(shdr[i]->sh_info));
 		read(fd, &shdr[i]->sh_addralign, sizeof(shdr[i]->sh_addralign));
-		read(fd, &shdr[i]->sh_entsize, sizeof(shdr[i]->sh_entsize));
+		read(fd, &shdr[i]->sh_entsize,   sizeof(shdr[i]->sh_entsize));
 	}
 
 	return 0;
 }
 
-#ifdef __LP64__
-char *get_section_name_table(int fd, Elf64_Ehdr *hdr, Elf64_Shdr **shdr)
-#else
-char *get_section_name_table(int fd, Elf32_Ehdr *hdr, Elf32_Shdr **shdr)
-#endif
+char *get_section_name_table(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr)
 {
 	int pos;
-	const unsigned offset = shdr[hdr->e_shstrndx]->sh_offset;
+	const unsigned offset = shdr[ehdr->e_shstrndx]->sh_offset;
 	char *table = (char *) malloc(sizeof(char) * offset);
 
 	pos = lseek(fd, 0, SEEK_CUR);
@@ -120,23 +104,20 @@ char *get_section_name_table(int fd, Elf32_Ehdr *hdr, Elf32_Shdr **shdr)
 	return table;
 }
 
-#ifdef __LP64__
-char *get_section_name(Elf64_Shdr **shdr, char *table, unsigned index)
-#else
 char *get_section_name(Elf32_Shdr **shdr, char *table, unsigned index)
-#endif
 {
 	return &(table[shdr[index]->sh_name]);
 }
 
-#ifdef __LP64__
-void dumpelf(Elf64_Ehdr *hdr)
-#else
-void dumpelf(Elf32_Ehdr *hdr)
-#endif
+void dump_header(Elf32_Ehdr *ehdr)
 {
-	printf("Classe : ");
-	switch(hdr->e_ident[EI_CLASS])
+	printf("En-tête ELF :\n");
+	printf("Magique : ");
+	for(int i = 0; i < EI_NIDENT; i++)
+		printf("%02x ", ehdr->e_ident[i]);
+
+	printf("\nClasse : ");
+	switch(ehdr->e_ident[EI_CLASS])
 	{
 		case ELFCLASS32:
 			printf("ELF32\n");
@@ -149,7 +130,7 @@ void dumpelf(Elf32_Ehdr *hdr)
 	}
 
 	printf("Données : ");
-	switch(hdr->e_ident[EI_DATA])
+	switch(ehdr->e_ident[EI_DATA])
 	{
 		case ELFDATA2LSB:
 			printf("Little endian\n");
@@ -161,10 +142,10 @@ void dumpelf(Elf32_Ehdr *hdr)
 			printf("Inconnue\n");
 	}
 
-	printf("Version : %i\n", hdr->e_ident[EI_VERSION]);
+	printf("Version : %i\n", ehdr->e_ident[EI_VERSION]);
 
 	printf("OS/ABI : ");
-	switch(hdr->e_ident[EI_OSABI])
+	switch(ehdr->e_ident[EI_OSABI])
 	{
 		case ELFOSABI_NONE:
 			printf("UNIX - System V\n");
@@ -177,7 +158,7 @@ void dumpelf(Elf32_Ehdr *hdr)
 	}
 
 	printf("Type : ");
-	switch(hdr->e_type)
+	switch(ehdr->e_type)
 	{
 		case ET_REL:
 			printf("Repositionable\n");
@@ -196,36 +177,33 @@ void dumpelf(Elf32_Ehdr *hdr)
 	}
 
 	printf("Machine : ");
-	switch(hdr->e_machine)
+	switch(ehdr->e_machine)
 	{
 		case EM_ARM:
-			printf("ARM 32 bits\n");
+			printf("ARM (32 bits)\n");
 			break;
 		case EM_AARCH64:
-			printf("ARM 64 bits\n");
+			printf("ARM  (64 bits)\n");
 			break;
 		case EM_386:
-			printf("Intel 32 bits\n");
+			printf("x86 (32 bits)\n");
 			break;
 		case EM_X86_64:
-			printf("AMD 64 bits\n");
+			printf("x86_64 (64 bits)\n");
 			break;
 		default:
 			printf("Inconnue\n");
 	}
 
-	printf("Version : 0x%x\n", hdr->e_version);
-	printf("Adresse du point d'entrée : 0x%x\n", hdr->e_entry);
-	printf("Début des en-têtes de programme : %i\n", hdr->e_phoff);
-	printf("Début des en-têtes de section : %i\n", hdr->e_shoff);
-	printf("Fanions : 0x%x\n", hdr->e_flags);
-	printf("Taille de cet en-tête : %i\n", hdr->e_ehsize);
-	printf("Taille de l'en-tête du programme : %i\n", hdr->e_phentsize);
-	printf("Nombre d'en-tête du programme : %i\n", hdr->e_phnum);
-	printf("Taille des en-têtes de section : %i\n", hdr->e_shentsize);
-	printf("Nombre d'en-têtes de section : %i\n", hdr->e_shnum);
-	printf("Table d'indexes des chaînes d'en-tête de section : %i\n", hdr->e_shstrndx);
-
-
+	printf("Version : %#x\n", ehdr->e_version);
+	printf("Adresse du point d'entrée : %#x\n", ehdr->e_entry);
+	printf("Début des en-têtes de programme : %i (octets dans le fichier)\n", ehdr->e_phoff);
+	printf("Début des en-têtes de section : %i (octets dans le fichier)\n", ehdr->e_shoff);
+	printf("Fanions : %#x\n", ehdr->e_flags);
+	printf("Taille de cet en-tête : %i (octets)\n", ehdr->e_ehsize);
+	printf("Taille de l'en-tête du programme : %i (octets)\n", ehdr->e_phentsize);
+	printf("Nombre d'en-tête du programme : %i\n", ehdr->e_phnum);
+	printf("Taille des en-têtes de section : %i (octets)\n", ehdr->e_shentsize);
+	printf("Nombre d'en-têtes de section : %i\n", ehdr->e_shnum);
+	printf("Table d'indexes des chaînes d'en-tête de section : %i\n", ehdr->e_shstrndx);
 }
-
