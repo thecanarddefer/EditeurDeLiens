@@ -1,6 +1,9 @@
 #ifndef _READELF_H_
 #define _READELF_H_
 
+#define DSP_FILE_HEADER     (1 << 0)
+#define DSP_SECTION_HEADERS (1 << 1)
+
 
 /**
  * Lis l'en-tête d'un fichier ELF 32 bits et stocke les informations dans une structure

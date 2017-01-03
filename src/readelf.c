@@ -1,11 +1,72 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <sys/stat.h>
 #include <linux/elf.h>
 #include "readelf.h"
 
+
+static uint8_t display = 0;
+static const struct
+{
+	const char short_opt;
+	const char *long_opt;
+	const int  need_arg;
+	char       *description;
+} opts[] =
+{
+	{ 'h',  "file-header",        no_argument,     "Affiche l'en-tête du fichier ELF"          },
+	{ 'S',  "section-headers",    no_argument,     "Affiche les sections de l'en-tête"         },
+	{ 'H',  "help",               no_argument,     "Affiche cette aide et quitte"              },
+	{ '\0', NULL,                 0,               NULL                                        }
+};
+
+static void print_help(char *prgname)
+{
+	printf("Usage: %s <option(s)> fichier(s)-elf\n", prgname);
+	printf("Afficher les informations à propos du contenu du format des fichiers ELF\n");
+	printf("Les options sont :\n");
+	for(int i = 0; opts[i].long_opt != NULL; i++)
+		printf("  -%c, --%-20s %s\n", opts[i].short_opt, opts[i].long_opt, opts[i].description);
+}
+
+static void parse_options(int argc, char *argv[])
+{
+	int c;
+	char shortopts[(sizeof(opts)/sizeof(opts[0]) - 1)] = "";
+	struct option longopts[sizeof(opts)/sizeof(opts[0]) - 1];
+
+	for(int i = 0; opts[i].long_opt != NULL; i++)
+	{
+		longopts[i].name    = opts[i].long_opt;
+		longopts[i].has_arg = opts[i].need_arg;
+		longopts[i].flag    = 0;
+		longopts[i].val     = opts[i].short_opt;
+		shortopts[i]        = opts[i].short_opt;
+	}
+
+	while((c = getopt_long(argc, argv, shortopts, longopts, NULL)) != -1)
+	{
+		switch(c)
+		{
+			case 'h':
+				display = DSP_FILE_HEADER;
+				break;
+			case 'S':
+				display = DSP_SECTION_HEADERS;
+				break;
+			case 'H':
+				print_help(argv[0]);
+				exit(0);
+			default:
+				print_help(argv[0]);
+				exit(1);
+		}
+	}
+}
 
 int main(int argc, char *argv[])
 {
@@ -13,27 +74,36 @@ int main(int argc, char *argv[])
 	Elf32_Ehdr *ehdr;
 	Elf32_Shdr **shdr;
 
-	if(argc <= 1)
+	if(argc <= 2)
 	{
-		fprintf(stderr, "%s : nom de fichier requis.\n", argv[0]);
+		print_help(argv[0]);
 		return 1;
 	}
 
-	fd = open(argv[1], O_RDONLY);
+	parse_options(argc, argv);
+	fd = open(argv[2], O_RDONLY);
 	if(fd < 0)
 	{
-		fprintf(stderr, "Impossible d'ouvrir le fichier %s.\n", argv[1]);
+		fprintf(stderr, "Impossible d'ouvrir le fichier %s.\n", argv[2]);
 		return 2;
 	}
 
 	ehdr = malloc(sizeof(Elf32_Ehdr));
 	read_header(fd, ehdr);
-	dump_header(ehdr);
 
 	shdr = malloc(sizeof(Elf32_Shdr*) * ehdr->e_shnum);
 	for(int i = 0; i < ehdr->e_shnum; i++)
 		shdr[i] = malloc(sizeof(Elf32_Shdr));
 	read_section_header(fd, ehdr, shdr);
+
+	switch(display)
+	{
+		case DSP_FILE_HEADER:
+			dump_header(ehdr);
+			break;
+		case DSP_SECTION_HEADERS:
+			fprintf(stderr, "Non-implémenté.\n");
+	}
 
 	close(fd);
 	for(int i = 0; i < ehdr->e_shnum; i++)
