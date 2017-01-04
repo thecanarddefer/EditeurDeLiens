@@ -10,6 +10,15 @@ typedef struct
         char     section_str[32];
 } Arguments;
 
+typedef struct
+{
+	unsigned nb_rel, nb_rela;   // Nombre de sections concernées
+	unsigned *e_rel, *e_rela;   // Nombre d'entrées par sections
+	Elf32_Addr *a_rel, *a_rela; // Adresse de décalage par sections
+	Elf32_Rel  ***rel;
+	Elf32_Rela ***rela;
+} Data_Rel;
+
 /**
  * Lis l'en-tête d'un fichier ELF 32 bits et stocke les informations dans une structure
  *
@@ -28,6 +37,17 @@ int read_header(int fd, Elf32_Ehdr *ehdr);
  * @retourne 0 en cas de succès
  **/
 int read_section_header(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr);
+
+/**
+ * Lis la table des réimplantations et stocke les informations dans une structure
+ *
+ * @param fd:   un descripteur de fichier (ELF32)
+ * @param ehdr: une structure de type Elf32_Ehdr initialisée
+ * @param shdr: un tableau de structures de type Elf32_Shdr initialisé
+ * @param drel: une struture de type Data_Rel
+ * @retourne 0 en cas de succès
+ **/
+int read_relocation_header(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, Data_Rel *drel);
 
 /**
  * Lis la table des noms de section d'un fichier ELF 32 bits et retourne la table
@@ -74,6 +94,14 @@ void dump_section (int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, unsigned index);
  * @param table: la table des noms de section
  **/
 void dump_section_header(Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char *table);
+
+/**
+ * Affiche les réimplantations
+ *
+ * @param ehdr:  une structure de type Elf32_Ehdr initialisée
+ * @param drel:  une structure de type Data_Rel initialisée
+ **/
+void dump_relocation(Elf32_Ehdr *ehdr, Data_Rel *drel);
 
 
 #endif
