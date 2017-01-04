@@ -57,7 +57,17 @@ void dump_header(Elf32_Ehdr *ehdr);
  * @param ehdr: une structure de type Elf32_Ehdr initialisée
  * @param shdr:  un tableau de structures de type Elf32_Shdr initialisé
  * @param index: le numéro d'une section
- * @retourne une chaîne de caractères correspondant au nom de la section
  **/
 void dump_section (int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, unsigned index);
+
+/**
+ * Affiche les informations sur l'en-tête de section lu
+ *
+ * @param ehdr:  une structure de type Elf32_Ehdr initialisée
+ * @param shdr:  un tableau de structures de type Elf32_Shdr initialisé
+ * @param table: la table des noms de section
+ **/
+void dump_section_header(Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char *table);
+
+
 #endif
