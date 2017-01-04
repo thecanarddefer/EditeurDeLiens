@@ -359,3 +359,46 @@ void dump_section_header(Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char *table)
 	printf("  G : groupes\n");
 	printf("  T : TLS\n");
 }
+
+int get_symtab_index(int nbSections, Elf32_Shdr **shdr) {
+	int i;
+	while (i < nbSections && ((shdr[i]->sh_type != SHT_SYMTAB) || (shdr[i]->sh_type != SHT_DYNSYM)) ) {
+		i++;
+	}
+	if ((shdr[i]->sh_type != SHT_SYMTAB) && (shdr[i]->sh_type != SHT_DYNSYM)) {
+		i = -1;
+	}
+	return i;
+}
+
+void read_symbol(int fd, Elf32_Sym *symtab) {
+	read(fd, &symtab->st_name, sizeof(symtab->st_name));
+	read(fd, &symtab->st_value, sizeof(symtab->st_value));
+	read(fd, &symtab->st_size, sizeof(symtab->st_size));
+	read(fd, &symtab->st_info, sizeof(symtab->st_info));
+	read(fd, &symtab->st_other, sizeof(symtab->st_other));
+	read(fd, &symtab->st_shndx, sizeof(symtab->st_shndx));
+}
+
+int read_symtab(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, Elf32_Sym **symtab) {
+	int idx = 0,
+		nbElt;
+
+	idx = get_symtab_index(ehdr->e_shnum,shdr);
+
+	if(idx == -1) {
+		return 1;
+	}
+	else {
+		nbElt = shdr[idx]->sh_size / shdr[idx]->sh_entsize; // Nombre de symboles dans la table.
+
+		symtab = malloc(sizeof(Elf32_Sym*) * nbElt);
+
+		for (int i = 0; i < nbElt; ++i)
+		{
+			lseek(fd, shdr[idx]->sh_addr + i * shdr[idx]->sh_entsize, SEEK_SET);
+			read_symbol(fd, symtab[i]);
+		}
+	}
+	return 0;
+}
