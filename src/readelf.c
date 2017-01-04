@@ -86,10 +86,11 @@ static void parse_options(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
-	int fd;
+	int fd, nbSymbol;
 	char *table = NULL;
 	Elf32_Ehdr *ehdr;
 	Elf32_Shdr **shdr;
+	Elf32_Sym **symtab;
 
 	if(argc <= 2)
 	{
@@ -113,6 +114,8 @@ int main(int argc, char *argv[])
 		shdr[i] = malloc(sizeof(Elf32_Shdr));
 	read_section_header(fd, ehdr, shdr);
 
+	symtab = read_symtab(fd, ehdr, shdr, &nbSymbol);
+
 	switch(display)
 	{
 		case DSP_FILE_HEADER:
@@ -122,6 +125,9 @@ int main(int argc, char *argv[])
 			table = get_section_name_table(fd, ehdr, shdr);
 			dump_section_header(ehdr, shdr, table);
 			free(table);
+			break;
+		case DSP_SYMS:
+			dump_symtab(nbSymbol, symtab);
 			break;
 		default:
 			fprintf(stderr, "Cette option n'est pas encore implémentée.\n");
@@ -362,43 +368,80 @@ void dump_section_header(Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char *table)
 
 int get_symtab_index(int nbSections, Elf32_Shdr **shdr) {
 	int i;
-	while (i < nbSections && ((shdr[i]->sh_type != SHT_SYMTAB) || (shdr[i]->sh_type != SHT_DYNSYM)) ) {
+	while (i < nbSections && (shdr[i]->sh_type != SHT_SYMTAB)) {
 		i++;
 	}
-	if ((shdr[i]->sh_type != SHT_SYMTAB) && (shdr[i]->sh_type != SHT_DYNSYM)) {
+	if (shdr[i]->sh_type != SHT_SYMTAB) {
 		i = -1;
 	}
 	return i;
 }
 
-void read_symbol(int fd, Elf32_Sym *symtab) {
-	read(fd, &symtab->st_name, sizeof(symtab->st_name));
-	read(fd, &symtab->st_value, sizeof(symtab->st_value));
-	read(fd, &symtab->st_size, sizeof(symtab->st_size));
-	read(fd, &symtab->st_info, sizeof(symtab->st_info));
-	read(fd, &symtab->st_other, sizeof(symtab->st_other));
-	read(fd, &symtab->st_shndx, sizeof(symtab->st_shndx));
-}
+// void read_symbol(int fd, Elf32_Sym *symtab) {
+// 	read(fd, &symtab->st_name, sizeof(symtab->st_name));
+// 	read(fd, &symtab->st_value, sizeof(symtab->st_value));
+// 	read(fd, &symtab->st_size, sizeof(symtab->st_size));
+// 	read(fd, &symtab->st_info, sizeof(symtab->st_info));
+// 	read(fd, &symtab->st_other, sizeof(symtab->st_other));
+// 	read(fd, &symtab->st_shndx, sizeof(symtab->st_shndx));
+// }
 
-int read_symtab(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, Elf32_Sym **symtab) {
-	int idx = 0,
-		nbElt;
+Elf32_Sym **read_symtab(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, int *nbElt) {
+	int i = 0;
+	Elf32_Sym **symtab;
 
-	idx = get_symtab_index(ehdr->e_shnum,shdr);
+	i = get_symtab_index(ehdr->e_shnum,shdr);
 
-	if(idx == -1) {
-		return 1;
-	}
-	else {
-		nbElt = shdr[idx]->sh_size / shdr[idx]->sh_entsize; // Nombre de symboles dans la table.
+	if(i != -1) {
+		*nbElt = shdr[i]->sh_size / shdr[i]->sh_entsize; // Nombre de symboles dans la table.
 
-		symtab = malloc(sizeof(Elf32_Sym*) * nbElt);
-
-		for (int i = 0; i < nbElt; ++i)
+		symtab = malloc(*nbElt * sizeof(Elf32_Sym*));
+		for (int j = 0; j < *nbElt; ++j)
 		{
-			lseek(fd, shdr[idx]->sh_addr + i * shdr[idx]->sh_entsize, SEEK_SET);
-			read_symbol(fd, symtab[i]);
+			symtab[j] = malloc(sizeof(Elf32_Sym));
+			
+			lseek(fd, shdr[i]->sh_offset + j * shdr[i]->sh_entsize, SEEK_SET);
+			
+			read(fd, &symtab[j]->st_name, sizeof(symtab[j]->st_name));
+			read(fd, &symtab[j]->st_value, sizeof(symtab[j]->st_value));
+			read(fd, &symtab[j]->st_size, sizeof(symtab[j]->st_size));
+			read(fd, &symtab[j]->st_info, sizeof(symtab[j]->st_info));
+			read(fd, &symtab[j]->st_other, sizeof(symtab[j]->st_other));
+			read(fd, &symtab[j]->st_shndx, sizeof(symtab[j]->st_shndx));
 		}
 	}
-	return 0;
+
+	return symtab;
+}
+
+
+void dump_symtab(int nbElt, Elf32_Sym **symtab) {
+	char *STT_VAL[]={"NOTYPE","OBJECT","FUNC","SECTION","FILE","COMMON","TLS"};
+	char *STB_VAL[]={"LOCAL","GLOBAL","WEAK"};
+	// char *VIS_VAL[]={"DEFAULT","PROTECTIVE","HIDDEN","UNDEF"};
+
+	int i = 1;
+	printf("Num:  Valeur   Tail Type    Lien    Vis    Ndx    Nom\n");
+	for (i = 0; i < nbElt; ++i) {
+		printf("%3d: ", i);
+		printf("%08x ", symtab[i]->st_value);
+		printf("%5d ", symtab[i]->st_size);
+		printf("%-7s ", STT_VAL[ELF32_ST_TYPE(symtab[i]->st_info)]);
+		printf("%-6s ", STB_VAL[ELF32_ST_BIND(symtab[i]->st_info)]);
+		printf("DEFAULT ");
+		switch(symtab[i]->st_shndx) {
+			case SHN_UNDEF:
+				printf("UND ");
+				break;
+			case SHN_ABS:
+				printf("ABS ");
+				break;
+
+			default:
+				printf("%3i ", symtab[i]->st_shndx);
+		}
+
+		printf("%10i ", symtab[i]->st_name);
+		printf("\n");
+	}
 }

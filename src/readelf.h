@@ -59,6 +59,7 @@ void dump_header(Elf32_Ehdr *ehdr);
  **/
 void dump_section_header(Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char *table);
 
-int read_symtab(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, Elf32_Sym **symtab);
+Elf32_Sym **read_symtab(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, int *nbElt);
+void dump_symtab(int nbElt, Elf32_Sym **symtab);
 
 #endif
