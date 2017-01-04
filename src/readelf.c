@@ -11,8 +11,6 @@
 #include "readelf.h"
 
 
-static enum DSP display = DSP_NONE;
-static unsigned section;
 static const struct
 {
 	const char short_opt;
@@ -39,7 +37,7 @@ static void print_help(char *prgname)
 		printf("  -%c, --%-20s %s\n", opts[i].short_opt, opts[i].long_opt, opts[i].description);
 }
 
-static void parse_options(int argc, char *argv[])
+static void parse_options(int argc, char *argv[], Arguments *args)
 {
 	int c = 0;
 	char shortopts[64] = "";
@@ -61,25 +59,23 @@ static void parse_options(int argc, char *argv[])
 		switch(c)
 		{
 			case 'h':
-				display = DSP_FILE_HEADER;
+				args->display = DSP_FILE_HEADER;
 				break;
 			case 'S':
-				display = DSP_SECTION_HEADERS;
+				args->display = DSP_SECTION_HEADERS;
 				break;
 			case 'x':
-				display = DSP_HEX_DUMP;
-				if(isalpha(optarg[0]))
-				{
-					//TODO
-				}
+				args->display = DSP_HEX_DUMP;
+				if((optarg[0] == '.') && (isalpha(optarg[1])))
+					strcpy(args->section_str, optarg);
 				else
-					section = atoi(optarg);
+					args->section_ind = atoi(optarg);
 				break;
 			case 's':
-				display = DSP_SYMS;
+				args->display = DSP_SYMS;
 				break;
 			case 'r':
-				display = DSP_RELOCS;
+				args->display = DSP_RELOCS;
 				break;
 			case 'H':
 				print_help(argv[0]);
@@ -93,8 +89,9 @@ static void parse_options(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
-	int fd;
+	int i, fd;
 	char *table = NULL;
+	Arguments args = { .display = DSP_NONE, .section_str = "" };
 	Elf32_Ehdr *ehdr;
 	Elf32_Shdr **shdr;
 
@@ -104,7 +101,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	parse_options(argc, argv);
+	parse_options(argc, argv, &args);
 	fd = open(argv[argc - 1], O_RDONLY); // Le dernier argument est le nom du fichier
 	if(fd < 0)
 	{
@@ -112,26 +109,44 @@ int main(int argc, char *argv[])
 		return 2;
 	}
 
+	/* Lecture en-tête */
 	ehdr = malloc(sizeof(Elf32_Ehdr));
 	read_header(fd, ehdr);
 
+	/* Lecture sections */
 	shdr = malloc(sizeof(Elf32_Shdr*) * ehdr->e_shnum);
-	for(int i = 0; i < ehdr->e_shnum; i++)
+	for(i = 0; i < ehdr->e_shnum; i++)
 		shdr[i] = malloc(sizeof(Elf32_Shdr));
 	read_section_header(fd, ehdr, shdr);
 
-	switch(display)
+	/* Récupération table des noms */
+	table = get_section_name_table(fd, ehdr, shdr);
+	if(args.section_str[0] != '\0')
+	{
+		for(i = 0; strcmp(args.section_str, get_section_name(shdr, table, i)) && i < ehdr->e_shnum - 1; i++);
+		if((strcmp(args.section_str, get_section_name(shdr, table, i))) && (i == ehdr->e_shnum - 1))
+		{
+			fprintf(stderr, "La section '%s' n'existe pas.\n", args.section_str);
+			return 3;
+		}
+		args.section_ind = i;
+	}
+	else if(args.section_ind >= ehdr->e_shnum)
+	{
+		fprintf(stderr, "La section %i n'existe pas.\n", args.section_ind);
+		return 3;
+	}
+
+	switch(args.display)
 	{
 		case DSP_FILE_HEADER:
 			dump_header(ehdr);
 			break;
 		case DSP_SECTION_HEADERS:
-			table = get_section_name_table(fd, ehdr, shdr);
 			dump_section_header(ehdr, shdr, table);
-			free(table);
 			break;
 		case DSP_HEX_DUMP:
-			dump_section(fd, ehdr, shdr, section);
+			dump_section(fd, ehdr, shdr, args.section_ind);
 			break;
 		default:
 			fprintf(stderr, "Cette option n'est pas encore implémentée.\n");
@@ -142,6 +157,7 @@ int main(int argc, char *argv[])
 		free(shdr[i]);
 	free(ehdr);
 	free(shdr);
+	free(table);
 
 	return 0;
 }
@@ -311,16 +327,16 @@ void dump_header(Elf32_Ehdr *ehdr)
 }
 
 void dump_section (int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, unsigned index){
-	
+
 	char *table = get_section_name_table(fd, ehdr, shdr);
 	char *name = get_section_name(shdr, table, index);
-	
+
 	printf("\nAffichage hexadécimal de la section « %s »:\n\n", name);
-	
+
 	Elf32_Shdr *shdrToDisplay = shdr[index];
-	
+
 	unsigned char buffer[16];
-	
+
 	lseek(fd, ehdr->e_entry + shdrToDisplay->sh_offset, SEEK_SET);
 
 	int i;
@@ -328,9 +344,9 @@ void dump_section (int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, unsigned index){
 	int k;
 	for (i=0; i<shdrToDisplay->sh_size; i+=16){
 		printf("  0x%08x ", i);
-		
+
 		for (j=0; j<4; j++){
-			
+
 			for (k=0; k<4; k++){
 				read(fd, &buffer, 1);
 				printf("%02x", *buffer);

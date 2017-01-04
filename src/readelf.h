@@ -3,6 +3,12 @@
 
 
 enum DSP { DSP_NONE, DSP_FILE_HEADER, DSP_SECTION_HEADERS, DSP_HEX_DUMP, DSP_SYMS, DSP_RELOCS };
+typedef struct
+{
+        enum DSP display;
+        unsigned section_ind;
+        char     section_str[32];
+} Arguments;
 
 /**
  * Lis l'en-tête d'un fichier ELF 32 bits et stocke les informations dans une structure
