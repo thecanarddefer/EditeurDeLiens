@@ -89,11 +89,14 @@ static void parse_options(int argc, char *argv[], Arguments *args)
 
 int main(int argc, char *argv[])
 {
-	int i, fd;
+	int i, fd,
+		nbSymbol,
+		idxStrTab = -1;
 	char *table = NULL;
 	Arguments args = { .display = DSP_NONE, .section_str = "" };
 	Elf32_Ehdr *ehdr;
 	Elf32_Shdr **shdr;
+	Elf32_Sym **symtab;
 
 	if(argc <= 2)
 	{
@@ -137,6 +140,9 @@ int main(int argc, char *argv[])
 		return 3;
 	}
 
+	/* Lecture table des symboles */
+	symtab = read_symtab(fd, ehdr, shdr, &nbSymbol, &idxStrTab);
+
 	switch(args.display)
 	{
 		case DSP_FILE_HEADER:
@@ -148,6 +154,10 @@ int main(int argc, char *argv[])
 		case DSP_HEX_DUMP:
 			dump_section(fd, ehdr, shdr, args.section_ind);
 			break;
+		case DSP_SYMS:
+			table = get_symbol_name_table(fd,idxStrTab,shdr);
+			dump_symtab(nbSymbol, symtab, table);
+			break;
 		default:
 			fprintf(stderr, "Cette option n'est pas encore implémentée.\n");
 	}
@@ -155,8 +165,11 @@ int main(int argc, char *argv[])
 	close(fd);
 	for(int i = 0; i < ehdr->e_shnum; i++)
 		free(shdr[i]);
+	for(int i = 0; i < nbSymbol; i++)
+		free(symtab[i]);
 	free(ehdr);
 	free(shdr);
+	free(symtab);
 	free(table);
 
 	return 0;
@@ -208,6 +221,7 @@ int read_section_header(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr)
 	return 0;
 }
 
+//TODO: char *get_name_table(int fd, Elf32_Word tableIndx, Elf32_shdr)
 char *get_section_name_table(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr)
 {
 	int pos;
@@ -457,4 +471,103 @@ void dump_section_header(Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char *table)
 	printf("  L : ordre des liens\n");
 	printf("  G : groupes\n");
 	printf("  T : TLS\n");
+}
+
+// TODO: void get_section_index(int nbSections, Elf32_Shdr **shdr, int <SHT_SECTION>)
+
+void get_symtab_index(int nbSections, Elf32_Shdr **shdr, int *idxSymTab, int *idxStrTab) {
+	int i = 0;
+	while (i < nbSections) {
+		if (shdr[i]->sh_type == SHT_SYMTAB) {
+			*idxSymTab = i;
+		}
+		else if (shdr[i]->sh_type == SHT_STRTAB)
+		{
+			*idxStrTab = i;
+		}
+		i++;
+	}
+}
+
+// void read_symbol(int fd, Elf32_Sym *symtab) {
+// 	read(fd, &symtab->st_name, sizeof(symtab->st_name));
+// 	read(fd, &symtab->st_value, sizeof(symtab->st_value));
+// 	read(fd, &symtab->st_size, sizeof(symtab->st_size));
+// 	read(fd, &symtab->st_info, sizeof(symtab->st_info));
+// 	read(fd, &symtab->st_other, sizeof(symtab->st_other));
+// 	read(fd, &symtab->st_shndx, sizeof(symtab->st_shndx));
+// }
+
+Elf32_Sym **read_symtab(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, int *nbElt, int *idxStrTab) {
+	int i = -1;
+	Elf32_Sym **symtab;
+
+	get_symtab_index(ehdr->e_shnum,shdr, &i, idxStrTab);
+
+	if(i != -1) {
+		*nbElt = shdr[i]->sh_size / shdr[i]->sh_entsize; // Nombre de symboles dans la table.
+
+		symtab = malloc(*nbElt * sizeof(Elf32_Sym*));
+		for (int j = 0; j < *nbElt; ++j) {
+			symtab[j] = malloc(sizeof(Elf32_Sym));
+			
+			lseek(fd, shdr[i]->sh_offset + j * shdr[i]->sh_entsize, SEEK_SET);
+			
+			read(fd, &symtab[j]->st_name, sizeof(symtab[j]->st_name));
+			read(fd, &symtab[j]->st_value, sizeof(symtab[j]->st_value));
+			read(fd, &symtab[j]->st_size, sizeof(symtab[j]->st_size));
+			read(fd, &symtab[j]->st_info, sizeof(symtab[j]->st_info));
+			read(fd, &symtab[j]->st_other, sizeof(symtab[j]->st_other));
+			read(fd, &symtab[j]->st_shndx, sizeof(symtab[j]->st_shndx));
+		}
+	}
+	return symtab;
+}
+
+char *get_symbol_name_table(int fd, int idxStrTab, Elf32_Shdr **shdr) {
+	int pos;
+	const unsigned offset = shdr[idxStrTab]->sh_offset;
+	char *table = (char *) malloc(sizeof(char) * offset);
+
+	pos = lseek(fd, 0, SEEK_CUR);
+	lseek(fd, offset, SEEK_SET);
+	read(fd, table, shdr[idxStrTab]->sh_size);
+
+	lseek(fd, pos, SEEK_SET);
+	return table;
+}
+
+char *get_symbol_name(Elf32_Sym **symtab, char *table, unsigned index){
+	return &(table[symtab[index]->st_name]);
+}
+
+void dump_symtab(int nbElt, Elf32_Sym **symtab, char *table) {
+	char *STT_VAL[]={"NOTYPE","OBJECT","FUNC","SECTION","FILE","COMMON","TLS"};
+	char *STB_VAL[]={"LOCAL","GLOBAL","WEAK"};
+
+	int i = 1;
+
+	printf("\n Table de symboles « .symtab » contient %i entrées:\n", nbElt);
+	printf("   Num:    Valeur Tail Type    Lien   Vis      Ndx Nom\n");
+	for (i = 0; i < nbElt; ++i) {
+		printf("%6d: ", i);
+		printf("%08x ", symtab[i]->st_value);
+		printf("%5d ", symtab[i]->st_size);
+		printf("%-7s ", STT_VAL[ELF32_ST_TYPE(symtab[i]->st_info)]);
+		printf("%-6s ", STB_VAL[ELF32_ST_BIND(symtab[i]->st_info)]);
+		printf("DEFAULT  "); // TODO: Gerer les differentes possibilités (DEFAULT,HIDDEN,PROTECTED)
+		switch(symtab[i]->st_shndx) {
+			case SHN_UNDEF:
+				printf("UND ");
+				break;
+			case SHN_ABS:
+				printf("ABS ");
+				break;
+
+			default:
+				printf("%3i ", symtab[i]->st_shndx);
+		}
+		printf("%-10s ", get_symbol_name(symtab,table,i));
+		printf("\n");
+	}
 }
