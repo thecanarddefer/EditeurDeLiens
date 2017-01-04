@@ -426,14 +426,14 @@ void dump_section (int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, unsigned index){
 
 	unsigned char buffer[16];
 
-	lseek(fd, ehdr->e_entry + shdrToDisplay->sh_offset, SEEK_SET);
+	lseek(fd, shdrToDisplay->sh_offset , SEEK_SET);
 
 	int i;
 	int j;
 	int k;
 	int nbByte = 0;
 	for (i=0; i<shdrToDisplay->sh_size; i+=16){
-		printf("  0x%08x ", i);
+		printf("  0x%08x ", i + shdr[index]->sh_addr);
 
 		for (j=0; j<4; j++){
 
