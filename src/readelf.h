@@ -59,7 +59,8 @@ void dump_header(Elf32_Ehdr *ehdr);
  **/
 void dump_section_header(Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char *table);
 
-Elf32_Sym **read_symtab(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, int *nbElt);
-void dump_symtab(int nbElt, Elf32_Sym **symtab);
+Elf32_Sym **read_symtab(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, int *nbElt, int *idxStrTab);
+char *get_symbol_name_table(int fd, int idxStrTab, Elf32_Shdr **shdr);
+void dump_symtab(int nbElt, Elf32_Sym **symtab, char *table);
 
 #endif
