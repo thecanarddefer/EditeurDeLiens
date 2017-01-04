@@ -342,14 +342,18 @@ void dump_section (int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, unsigned index){
 	int i;
 	int j;
 	int k;
+	int nbByte = 0;
 	for (i=0; i<shdrToDisplay->sh_size; i+=16){
 		printf("  0x%08x ", i);
 
 		for (j=0; j<4; j++){
 
 			for (k=0; k<4; k++){
-				read(fd, &buffer, 1);
-				printf("%02x", *buffer);
+				if ( nbByte < shdrToDisplay->sh_size ){
+					read(fd, &buffer, 1);
+					printf("%02x", *buffer);
+					nbByte++;
+				}
 			}
 			printf(" ");
 		}
