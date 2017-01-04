@@ -7,7 +7,7 @@
 #include <sys/stat.h>
 #include <ctype.h>
 #include <stdint.h>
-#include <linux/elf.h>
+#include <elf.h>
 #include "readelf.h"
 
 
@@ -227,6 +227,18 @@ char *get_section_name(Elf32_Shdr **shdr, char *table, unsigned index)
 	return &(table[shdr[index]->sh_name]);
 }
 
+int read_relocation_header(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr)
+{
+	for(int i = 0; i < ehdr->e_shnum; i++)
+	{
+		//printf("%i : %i (%i)\n", i, shdr[i]->sh_type, SHT_REL);
+		if(shdr[i]->sh_type == SHT_REL)
+			printf("%i\n", i);
+	}
+
+	return 0;
+}
+
 void dump_header(Elf32_Ehdr *ehdr)
 {
 	printf("En-tête ELF :\n");
@@ -361,13 +373,42 @@ void dump_section (int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, unsigned index){
 	}
 }
 
-#define SHF_MERGE            0x10
-#define SHF_STRING           0x20
-#define SHF_INFO_LINK        0x40
-#define SHF_LINK_ORDER       0x80
-#define SHF_GROUP            0x200
-#define SHF_TLS              0x400
-char *flags_to_string(Elf32_Word flags)
+static char *section_type_to_string(Elf32_Word type)
+{
+	int i;
+	const struct { Elf32_Word type_ind; char *type_str; } types[] =
+	{
+		{ SHT_NULL,           "NULL"           },
+		{ SHT_PROGBITS,       "PROGBITS"       },
+		{ SHT_SYMTAB,         "SYMTAB"         },
+		{ SHT_STRTAB,         "STRTAB"         },
+		{ SHT_RELA,           "RELA"           },
+		{ SHT_HASH,           "HASH"           },
+		{ SHT_DYNAMIC,        "DYNAMIC"        },
+		{ SHT_NOTE,           "NOTE"           },
+		{ SHT_NOBITS,         "NOBITS"         },
+		{ SHT_REL,            "REL"            },
+		{ SHT_SHLIB,          "SHLIB"          },
+		{ SHT_DYNSYM,         "DYNSYM"         },
+		{ SHT_INIT_ARRAY,     "INIT_ARRAY"     },
+		{ SHT_FINI_ARRAY,     "FINI_ARRAY"     },
+		{ SHT_PREINIT_ARRAY,  "PREINIT_ARRAY"  },
+		{ SHT_GROUP,          "GROUP"          },
+		{ SHT_SYMTAB_SHNDX,   "SYMTAB_SHNDX"   },
+		{ SHT_GNU_ATTRIBUTES, "GNU_ATTRIBUTES" },
+		{ SHT_GNU_HASH,       "GNU_HASH"       },
+		{ SHT_GNU_LIBLIST,    "GNU_LIBLIST"    },
+		{ SHT_GNU_verdef,     "VERDEF"         },
+		{ SHT_GNU_verneed,    "VERNEED"        },
+		{ SHT_GNU_versym,     "VERSYM"         },
+		{ SHT_HIUSER,         "UNKNOWN"        }
+	};
+
+	for(i = 0; (type != types[i].type_ind) && (types[i].type_ind != SHT_HIUSER); i++);
+	return types[i].type_str;
+}
+
+static char *flags_to_string(Elf32_Word flags)
 {
 	static char buff[3];
 	memset(buff, 0, 3);
@@ -380,7 +421,7 @@ char *flags_to_string(Elf32_Word flags)
 		strcat(buff, "X");
 	if(flags & SHF_MERGE)
 		strcat(buff, "M");
-	if(flags & SHF_STRING)
+	if(flags & SHF_STRINGS)
 		strcat(buff, "S");
 	if(flags & SHF_INFO_LINK)
 		strcat(buff, "I");
@@ -396,17 +437,14 @@ char *flags_to_string(Elf32_Word flags)
 
 void dump_section_header(Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char *table)
 {
-	const char *sht[] = { "NULL", "PROGBITS", "SYMTAB", "STRTAB", "RELA, HASH",
-	                     "DYNAMIC", "NOTE", "NOBITS", "REL", "SHLIB", "DYNSYM", "NUM" };
-
 	printf("Il y a %i en-têtes de section, débutant à l'adresse de décalage %#x :\n\n", ehdr->e_shnum, ehdr->e_shoff);
 	printf("En-têtes de section :\n");
-	printf("[%2s] %-18s %-8s %8s %6s %6s %2s %2s %2s %2s %2s\n",
+	printf("[%2s] %-18s %-14s %8s %6s %6s %2s %2s %2s %2s %2s\n",
 		"Nr", "Nom", "Type", "Adresse", "Déc.", "Taille", "ES", "Flg", "Lk", "Inf", "Al");
 
 	for(int i = 0; i < ehdr->e_shnum; i++)
-		printf("[%2i] %-18s %-8s %08x %06x %06x %02x %2s %2i %2i %2i\n", i, get_section_name(shdr, table, i),
-			shdr[i]->sh_type > SHT_NUM ? "" : sht[shdr[i]->sh_type], shdr[i]->sh_addr,
+		printf("[%2i] %-18s %-14s %08x %06x %06x %02x %2s %2i %2i %2i\n", i, get_section_name(shdr, table, i),
+			section_type_to_string(shdr[i]->sh_type), shdr[i]->sh_addr,
 			shdr[i]->sh_offset, shdr[i]->sh_size, shdr[i]->sh_entsize, flags_to_string(shdr[i]->sh_flags),
 			shdr[i]->sh_link, shdr[i]->sh_info, shdr[i]->sh_addralign);
 	printf("\nListe des fanions :\n");
