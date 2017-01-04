@@ -17,8 +17,8 @@ L'objectif  de  ce  projet  est  d’implémenter  une  sous  partie  d'un  édi
 ## Liste des tâches
 
 ### Phase 1
-- [ ] Étape 1 : Affichage de l’en-tête
-- [ ] Étape 2 : Affichage de la table des sections
+- [X] Étape 1 : Affichage de l’en-tête
+- [X] Étape 2 : Affichage de la table des sections
 - [ ] Étape 3 : Affichage du contenu d’une section
 - [ ] Étape 4 : Affichage de la table des symboles
 - [ ] Étape 5 : Affichage des tables de réimplantation
