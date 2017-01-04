@@ -541,7 +541,7 @@ void dump_section_header(Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char *table)
 void get_symtab_index(int nbSections, Elf32_Shdr **shdr, int *idxSymTab, int *idxStrTab) {
 	int i = 0;
 	while (i < nbSections) {
-		if (shdr[i]->sh_type == SHT_SYMTAB) {
+		if (shdr[i]->sh_type == SHT_SYMTAB || shdr[i]->sh_type == SHT_DYNSYM) {
 			*idxSymTab = i;
 		}
 		else if (shdr[i]->sh_type == SHT_STRTAB)
