@@ -96,6 +96,37 @@ void dump_section (int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, unsigned index);
 void dump_section_header(Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char *table);
 
 /**
+ * Lis la table des symboles d'un fichiers ELF 32 bits,
+ * stocke et retourne les informations dans un tableau de structures
+ *
+ * @param fd:   un descripteur de fichier (ELF32)
+ * @param ehdr: une structure de type Elf32_Ehdr initialisée
+ * @param shdr: un tableau de structures de type Elf32_Shdr
+ * @param idxStrTab: indice de la section .strtab
+ * @retourne: le tableau de structure.
+ **/
+Elf32_Sym **read_symtab(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, int *nbElt, int *idxStrTab);
+
+/**
+ * Lis la table des noms de symbole .strtab et retourne la table
+ *
+ * @param fd:   un descripteur de fichier (ELF32)
+ * @param idxStrTab: index de la section .strtab
+ * @param shdr: un tableau de structures de type Elf32_Shdr initialisé
+ * @retourne la table des noms de symboles
+ **/
+char *get_symbol_name_table(int fd, int idxStrTab, Elf32_Shdr **shdr);
+
+/**
+ * Affiche la table des symboles
+ *
+ * @param nbElt: le nombre de symboles dans la table
+ * @param symtab:  un tableau de structures de type Elf32_Sym
+ * @param table: la table des noms de symbole
+ **/
+void dump_symtab(int nbElt, Elf32_Sym **symtab, char *table);
+
+/**
  * Affiche les réimplantations
  *
  * @param ehdr:  une structure de type Elf32_Ehdr initialisée
