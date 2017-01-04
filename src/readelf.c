@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <getopt.h>
@@ -9,7 +8,7 @@
 #include "readelf.h"
 
 
-static uint8_t display = 0;
+static enum DSP display = DSP_NONE;
 static const struct
 {
 	const char short_opt;
@@ -18,10 +17,13 @@ static const struct
 	char       *description;
 } opts[] =
 {
-	{ 'h',  "file-header",        no_argument,     "Affiche l'en-tête du fichier ELF"          },
-	{ 'S',  "section-headers",    no_argument,     "Affiche les sections de l'en-tête"         },
-	{ 'H',  "help",               no_argument,     "Affiche cette aide et quitte"              },
-	{ '\0', NULL,                 0,               NULL                                        }
+	{ 'h',  "file-header",     no_argument,       "Affiche l'en-tête du fichier ELF"                       },
+	{ 'S',  "section-headers", no_argument,       "Affiche les sections de l'en-tête"                      },
+	{ 'x',  "hex-dump",        required_argument, "Affiche le contenu en hexadécimal d'une section donnée" },
+	{ 's',  "syms",            no_argument,       "Affiche la table des symboles"                          },
+	{ 'r',  "relocs",          no_argument,       "Affiche les réalocations (si présentes)"                },
+	{ 'H',  "help",            no_argument,       "Affiche cette aide et quitte"                           },
+	{ '\0', NULL,              0,               NULL                                                       }
 };
 
 static void print_help(char *prgname)
@@ -35,8 +37,8 @@ static void print_help(char *prgname)
 
 static void parse_options(int argc, char *argv[])
 {
-	int c;
-	char shortopts[(sizeof(opts)/sizeof(opts[0]) - 1)] = "";
+	int c = 0;
+	char shortopts[64] = "", *arg;
 	struct option longopts[sizeof(opts)/sizeof(opts[0]) - 1];
 
 	for(int i = 0; opts[i].long_opt != NULL; i++)
@@ -45,7 +47,9 @@ static void parse_options(int argc, char *argv[])
 		longopts[i].has_arg = opts[i].need_arg;
 		longopts[i].flag    = 0;
 		longopts[i].val     = opts[i].short_opt;
-		shortopts[i]        = opts[i].short_opt;
+		shortopts[c++]      = opts[i].short_opt;
+		if(opts[i].need_arg)
+			shortopts[c++] = ':';
 	}
 
 	while((c = getopt_long(argc, argv, shortopts, longopts, NULL)) != -1)
@@ -57,6 +61,17 @@ static void parse_options(int argc, char *argv[])
 				break;
 			case 'S':
 				display = DSP_SECTION_HEADERS;
+				break;
+			case 'x':
+				display = DSP_HEX_DUMP;
+				arg = optarg;
+				//TODO: Interpréter l'argument
+				break;
+			case 's':
+				display = DSP_SYMS;
+				break;
+			case 'r':
+				display = DSP_RELOCS;
 				break;
 			case 'H':
 				print_help(argv[0]);
@@ -81,7 +96,7 @@ int main(int argc, char *argv[])
 	}
 
 	parse_options(argc, argv);
-	fd = open(argv[2], O_RDONLY);
+	fd = open(argv[argc - 1], O_RDONLY); // Le dernier argument est le nom du fichier
 	if(fd < 0)
 	{
 		fprintf(stderr, "Impossible d'ouvrir le fichier %s.\n", argv[2]);
@@ -101,8 +116,8 @@ int main(int argc, char *argv[])
 		case DSP_FILE_HEADER:
 			dump_header(ehdr);
 			break;
-		case DSP_SECTION_HEADERS:
-			fprintf(stderr, "Non-implémenté.\n");
+		default:
+			fprintf(stderr, "Cette option n'est pas encore implémentée.\n");
 	}
 
 	close(fd);
