@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <getopt.h>
@@ -86,6 +87,7 @@ static void parse_options(int argc, char *argv[])
 int main(int argc, char *argv[])
 {
 	int fd;
+	char *table = NULL;
 	Elf32_Ehdr *ehdr;
 	Elf32_Shdr **shdr;
 
@@ -115,6 +117,11 @@ int main(int argc, char *argv[])
 	{
 		case DSP_FILE_HEADER:
 			dump_header(ehdr);
+			break;
+		case DSP_SECTION_HEADERS:
+			table = get_section_name_table(fd, ehdr, shdr);
+			dump_section_header(ehdr, shdr, table);
+			free(table);
 			break;
 		default:
 			fprintf(stderr, "Cette option n'est pas encore implémentée.\n");
@@ -291,4 +298,64 @@ void dump_header(Elf32_Ehdr *ehdr)
 	printf("Taille des en-têtes de section : %i (octets)\n", ehdr->e_shentsize);
 	printf("Nombre d'en-têtes de section : %i\n", ehdr->e_shnum);
 	printf("Table d'indexes des chaînes d'en-tête de section : %i\n", ehdr->e_shstrndx);
+}
+
+#define SHF_MERGE            0x10
+#define SHF_STRING           0x20
+#define SHF_INFO_LINK        0x40
+#define SHF_LINK_ORDER       0x80
+#define SHF_GROUP            0x200
+#define SHF_TLS              0x400
+char *flags_to_string(Elf32_Word flags)
+{
+	static char buff[3];
+	memset(buff, 0, 3);
+
+	if(flags & SHF_WRITE)
+		strcat(buff, "W");
+	if(flags & SHF_ALLOC)
+		strcat(buff, "A");
+	if(flags & SHF_EXECINSTR)
+		strcat(buff, "X");
+	if(flags & SHF_MERGE)
+		strcat(buff, "M");
+	if(flags & SHF_STRING)
+		strcat(buff, "S");
+	if(flags & SHF_INFO_LINK)
+		strcat(buff, "I");
+	if(flags & SHF_LINK_ORDER)
+		strcat(buff, "L");
+	if(flags & SHF_GROUP)
+		strcat(buff, "G");
+	if(flags & SHF_TLS)
+		strcat(buff, "T");
+
+	return buff;
+}
+
+void dump_section_header(Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char *table)
+{
+	const char *sht[] = { "NULL", "PROGBITS", "SYMTAB", "STRTAB", "RELA, HASH",
+	                     "DYNAMIC", "NOTE", "NOBITS", "REL", "SHLIB", "DYNSYM", "NUM" };
+
+	printf("Il y a %i en-têtes de section, débutant à l'adresse de décalage %#x :\n\n", ehdr->e_shnum, ehdr->e_shoff);
+	printf("En-têtes de section :\n");
+	printf("[%2s] %-18s %-8s %8s %6s %6s %2s %2s %2s %2s %2s\n",
+		"Nr", "Nom", "Type", "Adresse", "Déc.", "Taille", "ES", "Flg", "Lk", "Inf", "Al");
+
+	for(int i = 0; i < ehdr->e_shnum; i++)
+		printf("[%2i] %-18s %-8s %08x %06x %06x %02x %2s %2i %2i %2i\n", i, get_section_name(shdr, table, i),
+			shdr[i]->sh_type > SHT_NUM ? "" : sht[shdr[i]->sh_type], shdr[i]->sh_addr,
+			shdr[i]->sh_offset, shdr[i]->sh_size, shdr[i]->sh_entsize, flags_to_string(shdr[i]->sh_flags),
+			shdr[i]->sh_link, shdr[i]->sh_info, shdr[i]->sh_addralign);
+	printf("\nListe des fanions :\n");
+	printf("  W : écriture\n");
+	printf("  A : allocation\n");
+	printf("  X : exécution\n");
+	printf("  M : fusion\n");
+	printf("  S : chaînes\n");
+	printf("  I : info\n");
+	printf("  L : ordre des liens\n");
+	printf("  G : groupes\n");
+	printf("  T : TLS\n");
 }
