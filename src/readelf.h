@@ -50,5 +50,14 @@ char *get_section_name(Elf32_Shdr **shdr, char *table, unsigned index);
  **/
 void dump_header(Elf32_Ehdr *ehdr);
 
-
+/**
+ * Affiche le contenu brut d'une section
+ *
+ * @param fd:   un descripteur de fichier (ELF32)
+ * @param ehdr: une structure de type Elf32_Ehdr initialisée
+ * @param shdr:  un tableau de structures de type Elf32_Shdr initialisé
+ * @param index: le numéro d'une section
+ * @retourne une chaîne de caractères correspondant au nom de la section
+ **/
+void dump_section (int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, unsigned index);
 #endif

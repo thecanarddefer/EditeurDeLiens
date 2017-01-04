@@ -4,11 +4,14 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <sys/stat.h>
+#include <ctype.h>
+#include <stdint.h>
 #include <linux/elf.h>
 #include "readelf.h"
 
 
 static enum DSP display = DSP_NONE;
+static unsigned section;
 static const struct
 {
 	const char short_opt;
@@ -38,7 +41,7 @@ static void print_help(char *prgname)
 static void parse_options(int argc, char *argv[])
 {
 	int c = 0;
-	char shortopts[64] = "", *arg;
+	char shortopts[64] = "";
 	struct option longopts[sizeof(opts)/sizeof(opts[0]) - 1];
 
 	for(int i = 0; opts[i].long_opt != NULL; i++)
@@ -64,8 +67,12 @@ static void parse_options(int argc, char *argv[])
 				break;
 			case 'x':
 				display = DSP_HEX_DUMP;
-				arg = optarg;
-				//TODO: Interpréter l'argument
+				if(isalpha(optarg[0]))
+				{
+					//TODO
+				}
+				else
+					section = atoi(optarg);
 				break;
 			case 's':
 				display = DSP_SYMS;
@@ -115,6 +122,9 @@ int main(int argc, char *argv[])
 	{
 		case DSP_FILE_HEADER:
 			dump_header(ehdr);
+			break;
+		case DSP_HEX_DUMP:
+			dump_section(fd, ehdr, shdr, section);
 			break;
 		default:
 			fprintf(stderr, "Cette option n'est pas encore implémentée.\n");
@@ -291,4 +301,35 @@ void dump_header(Elf32_Ehdr *ehdr)
 	printf("Taille des en-têtes de section : %i (octets)\n", ehdr->e_shentsize);
 	printf("Nombre d'en-têtes de section : %i\n", ehdr->e_shnum);
 	printf("Table d'indexes des chaînes d'en-tête de section : %i\n", ehdr->e_shstrndx);
+}
+
+void dump_section (int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, unsigned index){
+	
+	char *table = get_section_name_table(fd, ehdr, shdr);
+	char *name = get_section_name(shdr, table, index);
+	
+	printf("\nAffichage hexadécimal de la section « %s »:\n\n", name);
+	
+	Elf32_Shdr *shdrToDisplay = shdr[index];
+	
+	unsigned char buffer[16];
+	
+	lseek(fd, ehdr->e_entry + shdrToDisplay->sh_offset, SEEK_SET);
+
+	int i;
+	int j;
+	int k;
+	for (i=0; i<shdrToDisplay->sh_size; i+=16){
+		printf("  0x%08x ", i);
+		
+		for (j=0; j<4; j++){
+			
+			for (k=0; k<4; k++){
+				read(fd, &buffer, 1);
+				printf("%02x", *buffer);
+			}
+			printf(" ");
+		}
+		printf("\n");
+	}
 }
