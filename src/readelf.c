@@ -165,6 +165,7 @@ int main(int argc, char *argv[])
 			dump_section(fd, ehdr, shdr, args.section_ind);
 			break;
 		case DSP_SYMS:
+			table = get_symbol_name_table(fd,idxStrTab,shdr);
 			dump_symtab(nbSymbol, symtab, table);
 			break;
 		case DSP_RELOCS:
