@@ -51,6 +51,7 @@ char *get_section_name_table(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr);
  **/
 char *get_section_name(Elf32_Shdr **shdr, char *table, unsigned index);
 
+int get_section_index(int nbSections, Elf32_Shdr **shdr, int shType, int isDyn, char *sectionNameTable);
 /**
  * Lis la table des symboles d'un fichiers ELF 32 bits,
  * stocke et retourne les informations dans un tableau de structures
@@ -61,7 +62,7 @@ char *get_section_name(Elf32_Shdr **shdr, char *table, unsigned index);
  * @param idxStrTab: indice de la section .strtab
  * @retourne: le tableau de structure.
  **/
-Elf32_Sym **read_symtab(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, int *nbElt, int *idxStrTab);
+Elf32_Sym **read_symtab(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, int *nbSymbol, int sectionIndex);
 
 /**
  * Lis la table des noms de symbole .strtab et retourne la table

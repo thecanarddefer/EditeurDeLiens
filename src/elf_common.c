@@ -86,48 +86,49 @@ char *get_section_name(Elf32_Shdr **shdr, char *table, unsigned index)
 
 
 /**************************** ÉTAPE 4 ****************************
-*                  Affichage de la table des symboles
+*                  Récupération de la table des symboles
 *****************************************************************/
 
-// TODO: void get_section_index(int nbSections, Elf32_Shdr **shdr, int <SHT_SECTION>)
-
-void get_symtab_index(int nbSections, Elf32_Shdr **shdr, int *idxSymTab, int *idxStrTab) {
-	int i = 0;
+int get_section_index(int nbSections, Elf32_Shdr **shdr, int shType, int isDyn, char *sectionNameTable) {
+	int i = 0,
+		idx = -1;
 	while (i < nbSections) {
-		if (shdr[i]->sh_type == SHT_SYMTAB || shdr[i]->sh_type == SHT_DYNSYM) {
-			*idxSymTab = i;
-		}
-		else if (shdr[i]->sh_type == SHT_STRTAB)
-		{
-			*idxStrTab = i;
+		if(shdr[i]->sh_type == shType) {
+			if (isDyn && shType == SHT_STRTAB) {
+				if (!strcmp(".dynstr",get_section_name(shdr,sectionNameTable,i))) {
+					idx = i;
+				}
+			}
+			else {
+				if (shType == SHT_STRTAB){
+					if (!strcmp(".strtab",get_section_name(shdr,sectionNameTable,i))) {
+						idx = i;
+					}
+				}
+				else {
+					idx = i;
+				}
+			}
 		}
 		i++;
 	}
+	return idx;
 }
 
-// void read_symbol(int fd, Elf32_Sym *symtab) {
-// 	read(fd, &symtab->st_name, sizeof(symtab->st_name));
-// 	read(fd, &symtab->st_value, sizeof(symtab->st_value));
-// 	read(fd, &symtab->st_size, sizeof(symtab->st_size));
-// 	read(fd, &symtab->st_info, sizeof(symtab->st_info));
-// 	read(fd, &symtab->st_other, sizeof(symtab->st_other));
-// 	read(fd, &symtab->st_shndx, sizeof(symtab->st_shndx));
-// }
+Elf32_Sym **read_symtab(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, int *nbSymbol, int sectionIndex) {
 
-Elf32_Sym **read_symtab(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, int *nbElt, int *idxStrTab) {
-	int i = -1;
 	Elf32_Sym **symtab;
 
-	get_symtab_index(ehdr->e_shnum,shdr, &i, idxStrTab);
+	// sectionIndex = get_section_index(ehdr->e_shnum,shdr, shType);
 
-	if(i != -1) {
-		*nbElt = shdr[i]->sh_size / shdr[i]->sh_entsize; // Nombre de symboles dans la table.
+	if(sectionIndex != -1) {
+		*nbSymbol = shdr[sectionIndex]->sh_size / shdr[sectionIndex]->sh_entsize; // Nombre de symboles dans la table.
 
-		symtab = malloc(*nbElt * sizeof(Elf32_Sym*));
-		for (int j = 0; j < *nbElt; ++j) {
+		symtab = malloc(*nbSymbol * sizeof(Elf32_Sym*));
+		for (int j = 0; j < *nbSymbol; ++j) {
 			symtab[j] = malloc(sizeof(Elf32_Sym));
 
-			lseek(fd, shdr[i]->sh_offset + j * shdr[i]->sh_entsize, SEEK_SET);
+			lseek(fd, shdr[sectionIndex]->sh_offset + j * shdr[sectionIndex]->sh_entsize, SEEK_SET);
 
 			read(fd, &symtab[j]->st_name, sizeof(symtab[j]->st_name));
 			read(fd, &symtab[j]->st_value, sizeof(symtab[j]->st_value));
@@ -140,6 +141,7 @@ Elf32_Sym **read_symtab(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, int *nbElt,
 	return symtab;
 }
 
+//TODO: char *get_name_table(int fd, Elf32_Word tableIndx, Elf32_shdr)
 char *get_symbol_name_table(int fd, int idxStrTab, Elf32_Shdr **shdr) {
 	int pos;
 	const unsigned offset = shdr[idxStrTab]->sh_offset;
@@ -153,10 +155,9 @@ char *get_symbol_name_table(int fd, int idxStrTab, Elf32_Shdr **shdr) {
 	return table;
 }
 
-char *get_symbol_name(Elf32_Sym **symtab, char *table, unsigned index){
+char *get_symbol_name(Elf32_Sym **symtab, char *table, unsigned index) {
 	return &(table[symtab[index]->st_name]);
 }
-
 
 /**************************** ÉTAPE 5 ****************************
 *               Affichage des tables de réimplantation

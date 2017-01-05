@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
 	Arguments args = { .display = DSP_NONE, .section_str = "" };
 	Elf32_Ehdr *ehdr;
 	Elf32_Shdr **shdr;
-	Elf32_Sym **symtab;
+	Elf32_Sym **symbolTable;
 	Data_Rel *drel;
 
 	if(argc <= 2)
@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Lecture table des symboles */
-	symtab = read_symtab(fd, ehdr, shdr, &nbSymbol, &idxStrTab);
+	// symtab = read_symtab(fd, ehdr, shdr, &nbSymbol, &idxStrTab);
 
 	/* Récupération des tables de réimplantation */
 	drel = malloc(sizeof(Data_Rel));
@@ -166,12 +166,13 @@ int main(int argc, char *argv[])
 			dump_section(fd, ehdr, shdr, args.section_ind);
 			break;
 		case DSP_SYMS:
-			table = get_symbol_name_table(fd,idxStrTab,shdr);
-			dump_symtab(nbSymbol, symtab, table);
+			// table = get_symbol_name_table(fd,idxStrTab,shdr);
+			// dump_symtab(nbSymbol, symtab, table);
+			symbolTable = symtab(fd,ehdr,shdr,table);
 			break;
 		case DSP_RELOCS:
 			table = get_symbol_name_table(fd,idxStrTab,shdr);
-			dump_relocation(ehdr, drel, symtab, table);
+			dump_relocation(ehdr, drel, symbolTable, table);
 			break;
 		default:
 			fprintf(stderr, "Cette option n'est pas encore implémentée.\n");
@@ -431,21 +432,22 @@ void dump_section (int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, unsigned index){
 *                  Affichage de la table des symboles
 *****************************************************************/
 
-void dump_symtab(int nbElt, Elf32_Sym **symtab, char *table) {
+void dump_symtab(int nbSymbol, Elf32_Sym **symtab, char *symbolNameTable, char *name) {
 	char *STT_VAL[]={"NOTYPE","OBJECT","FUNC","SECTION","FILE","COMMON","TLS"};
 	char *STB_VAL[]={"LOCAL","GLOBAL","WEAK"};
 
 	int i = 1;
 
-	printf("\n Table de symboles « .symtab » contient %i entrées:\n", nbElt);
+	printf("\n Table de symboles « %s » contient %i entrées:\n", name, nbSymbol);
 	printf("   Num:    Valeur Tail Type    Lien   Vis      Ndx Nom\n");
-	for (i = 0; i < nbElt; ++i) {
+	for (i = 0; i < nbSymbol; ++i) {
 		printf("%6d: ", i);
 		printf("%08x ", symtab[i]->st_value);
 		printf("%5d ", symtab[i]->st_size);
 		printf("%-7s ", STT_VAL[ELF32_ST_TYPE(symtab[i]->st_info)]);
 		printf("%-6s ", STB_VAL[ELF32_ST_BIND(symtab[i]->st_info)]);
 		printf("DEFAULT  "); // TODO: Gerer les differentes possibilités (DEFAULT,HIDDEN,PROTECTED)
+
 		switch(symtab[i]->st_shndx) {
 			case SHN_UNDEF:
 				printf("UND ");
@@ -457,10 +459,48 @@ void dump_symtab(int nbElt, Elf32_Sym **symtab, char *table) {
 			default:
 				printf("%3i ", symtab[i]->st_shndx);
 		}
-		printf("%-10s ", get_symbol_name(symtab,table,i));
+		printf("%-10s ", get_symbol_name(symtab,symbolNameTable,i));
 		printf("\n");
 	}
 }
+
+
+Elf32_Sym **symtab(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char *sectionNameTable) {
+	int nbSymbol = 0,
+		symtabIndex = -1,
+		strtabIndex = -1;
+	char *dynSymbolNameTable = NULL,
+		 *symbolNameTable = NULL;
+
+	Elf32_Sym **symtab, 
+			  **dynsym;
+
+	/* Lecture table des symboles */
+
+	// SHT_DYNSYM
+	symtabIndex = get_section_index(ehdr->e_shnum,shdr, SHT_DYNSYM, 1, sectionNameTable);
+	if (symtabIndex != -1) {
+		dynsym = read_symtab(fd, ehdr, shdr, &nbSymbol, symtabIndex);
+		if (dynsym != NULL) {
+			strtabIndex = get_section_index(ehdr->e_shnum,shdr, SHT_STRTAB, 1, sectionNameTable); // DT_SYMTAB
+			dynSymbolNameTable = get_symbol_name_table(fd,strtabIndex,shdr);
+			// Affichage
+			dump_symtab(nbSymbol, dynsym, dynSymbolNameTable, get_section_name(shdr,sectionNameTable,symtabIndex));
+		}
+	}
+	symtabIndex = get_section_index(ehdr->e_shnum,shdr, SHT_SYMTAB, 0, sectionNameTable);
+	if (symtabIndex != -1) {
+		symtab = read_symtab(fd, ehdr, shdr, &nbSymbol, symtabIndex);
+		if (dynsym != NULL) {
+			strtabIndex = get_section_index(ehdr->e_shnum,shdr, SHT_STRTAB, 0, sectionNameTable);
+			symbolNameTable = get_symbol_name_table(fd,strtabIndex,shdr);
+			// Affichage
+			dump_symtab(nbSymbol, symtab, symbolNameTable, get_section_name(shdr,sectionNameTable,symtabIndex));
+		}
+	}
+	return symtab;
+}
+
 
 
 /**************************** ÉTAPE 5 ****************************
