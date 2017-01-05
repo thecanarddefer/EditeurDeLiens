@@ -62,7 +62,7 @@ int get_section_index(int nbSections, Elf32_Shdr **shdr, int shType, int isDyn, 
  * @param idxStrTab: indice de la section .strtab
  * @retourne: le tableau de structure.
  **/
-Elf32_Sym **read_symtab(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, int *nbSymbol, int sectionIndex);
+// Elf32_Sym **read_symtab(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, int *nbSymbol, int sectionIndex);
 
 /**
  * Lis la table des noms de symbole .strtab et retourne la table
@@ -72,7 +72,7 @@ Elf32_Sym **read_symtab(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, int *nbSymb
  * @param shdr: un tableau de structures de type Elf32_Shdr initialisé
  * @retourne la table des noms de symboles
  **/
-char *get_symbol_name_table(int fd, int idxStrTab, Elf32_Shdr **shdr);
+// char *get_symbol_name_table(int fd, int idxStrTab, Elf32_Shdr **shdr);
 
 /**
  * Retourne le nom d'un symbole donné

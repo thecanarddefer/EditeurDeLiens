@@ -86,7 +86,7 @@ char *get_section_name(Elf32_Shdr **shdr, char *table, unsigned index)
 
 
 /**************************** ÉTAPE 4 ****************************
-*                  Récupération de la table des symboles
+*    Utilitaires pour la récupération de la table des symboles
 *****************************************************************/
 
 int get_section_index(int nbSections, Elf32_Shdr **shdr, int shType, int isDyn, char *sectionNameTable) {
@@ -114,49 +114,9 @@ int get_section_index(int nbSections, Elf32_Shdr **shdr, int shType, int isDyn, 
 	}
 	return idx;
 }
-
-Elf32_Sym **read_symtab(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, int *nbSymbol, int sectionIndex) {
-
-	Elf32_Sym **symtab;
-
-	// sectionIndex = get_section_index(ehdr->e_shnum,shdr, shType);
-
-	if(sectionIndex != -1) {
-		*nbSymbol = shdr[sectionIndex]->sh_size / shdr[sectionIndex]->sh_entsize; // Nombre de symboles dans la table.
-
-		symtab = malloc(*nbSymbol * sizeof(Elf32_Sym*));
-		for (int j = 0; j < *nbSymbol; ++j) {
-			symtab[j] = malloc(sizeof(Elf32_Sym));
-
-			lseek(fd, shdr[sectionIndex]->sh_offset + j * shdr[sectionIndex]->sh_entsize, SEEK_SET);
-
-			read(fd, &symtab[j]->st_name, sizeof(symtab[j]->st_name));
-			read(fd, &symtab[j]->st_value, sizeof(symtab[j]->st_value));
-			read(fd, &symtab[j]->st_size, sizeof(symtab[j]->st_size));
-			read(fd, &symtab[j]->st_info, sizeof(symtab[j]->st_info));
-			read(fd, &symtab[j]->st_other, sizeof(symtab[j]->st_other));
-			read(fd, &symtab[j]->st_shndx, sizeof(symtab[j]->st_shndx));
-		}
-	}
-	return symtab;
-}
-
-//TODO: char *get_name_table(int fd, Elf32_Word tableIndx, Elf32_shdr)
-char *get_symbol_name_table(int fd, int idxStrTab, Elf32_Shdr **shdr) {
-	int pos;
-	const unsigned offset = shdr[idxStrTab]->sh_offset;
-	char *table = (char *) malloc(sizeof(char) * offset);
-
-	pos = lseek(fd, 0, SEEK_CUR);
-	lseek(fd, offset, SEEK_SET);
-	read(fd, table, shdr[idxStrTab]->sh_size);
-
-	lseek(fd, pos, SEEK_SET);
-	return table;
-}
-
+// TODO: Utiliser get_section_name_table pour get_symbole_name_table
 char *get_symbol_name(Elf32_Sym **symtab, char *table, unsigned index) {
-	return &(table[symtab[index]->st_name]);
+    return &(table[symtab[index]->st_name]);
 }
 
 /**************************** ÉTAPE 5 ****************************

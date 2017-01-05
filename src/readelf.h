@@ -40,17 +40,6 @@ void dump_section (int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, unsigned index);
 void dump_section_header(Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char *table);
 
 /**
- * Affiche la table des symboles
- *
- * @param nbElt: le nombre de symboles dans la table
- * @param symtab:  un tableau de structures de type Elf32_Sym
- * @param table: la table des noms de symbole
- **/
-void dump_symtab(int nbSymbol, Elf32_Sym **symtab, char *symbolNameTable, char *name);
-
-Elf32_Sym **symtab(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char *sectionNameTable);
-
-/**
  * Affiche les réimplantations
  *
  * @param ehdr:  une structure de type Elf32_Ehdr initialisée
