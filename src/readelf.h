@@ -54,7 +54,7 @@ void dump_symtab(int nbElt, Elf32_Sym **symtab, char *table);
  * @param ehdr:  une structure de type Elf32_Ehdr initialisée
  * @param drel:  une structure de type Data_Rel initialisée
  **/
-void dump_relocation(Elf32_Ehdr *ehdr, Data_Rel *drel);
+void dump_relocation(Elf32_Ehdr *ehdr, Data_Rel *drel, Elf32_Sym **symtab, char *table);
 
 
 #endif
