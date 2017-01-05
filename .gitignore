@@ -1,5 +1,5 @@
 # Object files
-#*.o
+*.o
 *.ko
 *.obj
 *.elf
@@ -34,3 +34,8 @@
 
 # Others
 *~
+readelf
+ld
+!hello.o
+!vfscanf.o
+
