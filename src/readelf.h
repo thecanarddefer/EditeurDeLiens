@@ -45,6 +45,7 @@ void dump_section_header(Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char *table);
  *
  * @param ehdr:  une structure de type Elf32_Ehdr initialisée
  * @param drel:  une structure de type Data_Rel initialisée
+ * @param symTabFull: une structure de type symbolTable
  **/
 void dump_relocation(Elf32_Ehdr *ehdr, Data_Rel *drel, symbolTable *symTabFull);
 

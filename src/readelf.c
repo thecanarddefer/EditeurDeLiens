@@ -670,7 +670,6 @@ void dump_relocation(Elf32_Ehdr *ehdr, Data_Rel *drel, symbolTable *symTabFull)
 			printf("%08x  %08x %-17s", drel->rel[i][j]->r_offset, drel->rel[i][j]->r_info,
 			relocation_type_to_string(ehdr, ELF32_R_TYPE(drel->rel[i][j]->r_info)));
 
-
 			if ((ELF32_R_TYPE(drel->rel[i][j]->r_info) == R_ARM_TLS_DESC)
 			 || (ELF32_R_TYPE(drel->rel[i][j]->r_info) == R_ARM_TLS_DTPMOD32)
 			 || (ELF32_R_TYPE(drel->rel[i][j]->r_info) == R_ARM_TLS_DTPOFF32)
