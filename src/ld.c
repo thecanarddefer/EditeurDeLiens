@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "elf_common.h"
+#include "symbolTable.h"
 #include "ld.h"
 
 
@@ -40,9 +41,13 @@ int main(int argc, char *argv[])
 	unsigned nb_sections = 0;
 
 	Elf32_Off offset = 0;
+	Elf32_Word symbsize = 0;
 	Elf32_Ehdr *ehdr1 = malloc(sizeof(Elf32_Ehdr));
 	Elf32_Ehdr *ehdr2 = malloc(sizeof(Elf32_Ehdr));
 	Elf32_Shdr **shdr1, **shdr2;
+	symbolTable *st1 = malloc(sizeof(symbolTable));
+	symbolTable *st2 = malloc(sizeof(symbolTable));
+	symbolTable *st_out = malloc(sizeof(symbolTable));
 	Fusion **fusion = NULL;
 
 	read_header(fd1, ehdr1);
@@ -59,6 +64,8 @@ int main(int argc, char *argv[])
 
 	char *table1 = get_name_table(fd1, ehdr1->e_shstrndx, shdr1);
 	char *table2 = get_name_table(fd2, ehdr2->e_shstrndx, shdr2);
+	st1 = read_symbolTable(fd1, ehdr1, shdr1, table1);
+	st2 = read_symbolTable(fd2, ehdr2, shdr2, table2);
 
 	/* On parcours les sections PROGBITS du premier fichier */
 	for(int i = 0; i < ehdr1->e_shnum; i++)
@@ -141,6 +148,98 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	/* Clonage de st1 en st_out */
+	symbsize = shdr1[st1->symtabIndex]->sh_size;
+	st_out->nbSymbol = st1->nbSymbol;
+	st_out->symbolNameTable = malloc(symbsize);
+	memcpy(st_out->symbolNameTable, st1->symbolNameTable, symbsize);
+	st_out->symTableName = malloc(strlen(st1->symTableName) + 1);
+	strcpy(st_out->symTableName, st1->symTableName);
+	st_out->symtab = malloc(sizeof(Elf32_Sym*) * st_out->nbSymbol);
+	for(int i = 0; i < st_out->nbSymbol; i++)
+	{
+		st_out->symtab[i] = malloc(sizeof(Elf32_Sym));
+		memcpy(st_out->symtab[i], st1->symtab[i], sizeof(Elf32_Sym));
+	}
+	//TODO Faire la table dynamique
+
+	/* On remplace les caractères '\0' par des espaces afin de pouvoir utiliser des fonctions de manipulation de chaines */
+	for(int i = 0; i < symbsize; i++)
+		if(st_out->symbolNameTable[i] == '\0')
+			st_out->symbolNameTable[i] = ' ';
+	st_out->symbolNameTable[symbsize] = '\0';
+
+	for(int i = 1; i < st2->nbSymbol; i++)
+	{
+		char *buff = get_symbol_name(st2->symtab, st2->symbolNameTable, i);
+
+		if(ELF32_ST_BIND(st2->symtab[i]->st_info) != STB_GLOBAL)
+		{
+			ind = add_symbol_in_table(st_out, st2->symtab[i]);
+			if(strlen(buff) > 0)
+			{
+				/* On recherche si le symbole est déjà présent dans la nouvelle table */
+				if(strstr(st_out->symbolNameTable, buff) == NULL)
+				{
+					/* On ajoute le symbole à la nouvelle table */
+					st_out->symtab[ind]->st_name = symbsize;
+					add_symbol_in_name_table(&st_out->symbolNameTable, buff, &symbsize);
+				}
+				else
+				{
+					/* On calcule l'indice correspondant au symbole déjà présent */
+					st_out->symtab[ind]->st_name = strstr(st_out->symbolNameTable, buff) - st_out->symbolNameTable;
+				}
+			}
+		}
+		else
+		{
+			/* Symbole global */
+			if(strlen(buff) == 0)
+			{
+				/* On ajoute le symbole à la nouvelle table */
+				ind = add_symbol_in_table(st_out, st2->symtab[i]);
+				st_out->symtab[ind]->st_name = symbsize;
+				add_symbol_in_name_table(&st_out->symbolNameTable, buff, &symbsize);
+			}
+			else
+			{
+				/* On recherche si le symbole est déjà présent dans la nouvelle table */
+				for(ind = 0; (ind < st1->nbSymbol) && strcmp(get_symbol_name(st1->symtab, st1->symbolNameTable, ind), buff); ind++);
+
+				if(strstr(st_out->symbolNameTable, buff) == NULL)
+				{
+					/* On ajoute le symbole à la nouvelle table */
+					ind = add_symbol_in_table(st_out, st2->symtab[i]);
+					st_out->symtab[ind]->st_name = symbsize;
+					add_symbol_in_name_table(&st_out->symbolNameTable, buff, &symbsize);
+				}
+				else if(st_out->symtab[ind]->st_shndx == SHN_UNDEF && st2->symtab[ind]->st_shndx != SHN_UNDEF)
+				{
+					/* On remplace le symbole indéfini par le défini, en conservant st_name */
+					Elf32_Word name = st_out->symtab[ind]->st_name;
+					memcpy(st_out->symtab[ind], st2->symtab[i], sizeof(Elf32_Sym));
+					st_out->symtab[ind]->st_name = name;
+				}
+				else
+				{
+					/* Un symbole global est défini deux fois, on abandonne... */
+					remove(argv[3]);
+					fprintf(stderr, "%s : le symbole « %s » est défini plus d'une fois !\n", argv[0], buff);
+					return 2;
+				}
+			}
+		}
+	}
+
+	/* On remet les caractères '\0' à la place des espaces */
+	for(int i = 0; i < symbsize; i++)
+		if(st_out->symbolNameTable[i] == ' ')
+			st_out->symbolNameTable[i] = '\0';
+
+	// Pour debug
+	dump_symtab(st_out->nbSymbol, st_out->symtab, st_out->symbolNameTable, st_out->symTableName);
+
 	close(fd1);
 	close(fd2);
 	close(fd_out);
@@ -161,4 +260,24 @@ int write_progbits_in_file(int fd_in, int fd_out, Elf32_Word size, Elf32_Off off
 		free(buff);
 
 		return (r != w);
+}
+
+int add_symbol_in_table(symbolTable *st, Elf32_Sym *symtab)
+{
+	int ind = st->nbSymbol;
+
+	st->nbSymbol++;
+	st->symtab = realloc(st->symtab, sizeof(Elf32_Sym*) * st->nbSymbol);
+	st->symtab[ind] = malloc(sizeof(Elf32_Sym));
+	memcpy(st->symtab[ind], symtab, sizeof(Elf32_Sym));
+
+	return ind;
+}
+
+void add_symbol_in_name_table(char **symbolNameTable, char *symbol, Elf32_Word *size)
+{
+	*size += strlen(symbol) + 1;
+	*symbolNameTable = realloc(*symbolNameTable, *size);
+	strcat(*symbolNameTable, symbol);
+	(*symbolNameTable)[*size - 1] = ' ';
 }
