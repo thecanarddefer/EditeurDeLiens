@@ -12,3 +12,9 @@
 * Affichage du contenu d'une section (étape 3)
 * Affichage de la table des symboles (étape 4)
 * Affichage *partiel** des tables de réimplantation (cible + type)
+
+## Jeudi 5 janvier 2017
+* Réorganisation du code source
+* Affichage des tables de réimplantation (étape 5)
+* Affichage de la table des symboles dynamique
+* Début de travail sur la fusion des sections

@@ -21,7 +21,7 @@ L'objectif  de  ce  projet  est  d’implémenter  une  sous  partie  d'un  édi
 - [X] Étape 2 : Affichage de la table des sections
 - [X] Étape 3 : Affichage du contenu d’une section
 - [X] Étape 4 : Affichage de la table des symboles
-- [ ] Étape 5 : Affichage des tables de réimplantation
+- [X] Étape 5 : Affichage des tables de réimplantation
 
 ### Phase 2
 - [ ] Étape 6 : Fusion et renumérotation des sections
