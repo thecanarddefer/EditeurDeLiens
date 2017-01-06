@@ -93,6 +93,8 @@ symbolTable *read_symbolTable(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char 
     // initialisation
     symTabToRead->nbSymbol = 0;
     symTabToRead->nbDynSymbol = 0;
+    symTabToRead->symtab = NULL;
+    symTabToRead->dynsym = NULL;
     symTabToRead->symbolNameTable = NULL;
     symTabToRead->dynSymbolNameTable = NULL;
 
