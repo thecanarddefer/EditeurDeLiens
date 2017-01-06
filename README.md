@@ -24,7 +24,7 @@ L'objectif  de  ce  projet  est  d’implémenter  une  sous  partie  d'un  édi
 - [X] Étape 5 : Affichage des tables de réimplantation
 
 ### Phase 2
-- [ ] Étape 6 : Fusion et renumérotation des sections
+- [X] Étape 6 : Fusion et renumérotation des sections
 - [ ] Étape 7 : Fusion, renumérotation et correction des symboles
 - [ ] Étape 8 : Fusion et correction des tables de réimplantations
 - [ ] Étape 9 : Production d’un fichier résultat au format ELF

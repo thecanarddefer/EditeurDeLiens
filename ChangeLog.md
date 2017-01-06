@@ -18,3 +18,9 @@
 * Affichage des tables de réimplantation (étape 5)
 * Affichage de la table des symboles dynamique
 * Début de travail sur la fusion des sections
+
+## Vendredi 6 janvier 2017
+* Affichage du nom des symboles dynamiques
+* Fusion et renumérotation des sections PROGBITS (étape 6)
+* Diverses documentations, corrections, améliorations et nettoyages
+* Fusion de la table des symboles statique
