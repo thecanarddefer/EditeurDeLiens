@@ -64,18 +64,13 @@ int read_section_header(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr)
 	return 0;
 }
 
-//TODO: char *get_name_table(int fd, Elf32_Word tableIndx, Elf32_shdr)
-char *get_section_name_table(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr)
+char *get_name_table(int fd, int idxSection, Elf32_Shdr **shdr)
 {
-	int pos;
-	const unsigned offset = shdr[ehdr->e_shstrndx]->sh_offset;
-	char *table = (char *) malloc(sizeof(char) * offset);
+	char *table = (char *) malloc(sizeof(char) * shdr[idxSection]->sh_size);
 
-	pos = lseek(fd, 0, SEEK_CUR);
-	lseek(fd, offset, SEEK_SET);
-	read(fd, table, offset);
+	lseek(fd, shdr[idxSection]->sh_offset, SEEK_SET);
+	read(fd, table, shdr[idxSection]->sh_size);
 
-	lseek(fd, pos, SEEK_SET);
 	return table;
 }
 

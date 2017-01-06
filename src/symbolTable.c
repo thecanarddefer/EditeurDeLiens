@@ -11,21 +11,6 @@
 #include "symbolTable.h"
 
 
-
-//TODO: char *get_name_table(int fd, Elf32_Word tableIndx, Elf32_Shdr)
-char *get_symbol_name_table(int fd, int idxStrTab, Elf32_Shdr **shdr) {
-    int pos;
-    const unsigned offset = shdr[idxStrTab]->sh_offset;
-    char *table = (char *) malloc(sizeof(char) * offset);
-
-    pos = lseek(fd, 0, SEEK_CUR);
-    lseek(fd, offset, SEEK_SET);
-    read(fd, table, shdr[idxStrTab]->sh_size);
-
-    lseek(fd, pos, SEEK_SET);
-    return table;
-}
-
 Elf32_Sym **read_Elf32_Sym(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, int *nbSymbol, int sectionIndex) {
 
     Elf32_Sym **symtab;
@@ -104,7 +89,7 @@ symbolTable *read_symbolTable(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char 
         symTabToRead->dynsym = read_Elf32_Sym(fd, ehdr, shdr, &symTabToRead->nbDynSymbol, tmpSymtabIndex);
         if (symTabToRead->dynsym != NULL) {
             tmpStrtabIndex = get_section_index(ehdr->e_shnum,shdr, SHT_STRTAB, 1, sectionNameTable); // DT_SYMTAB
-            symTabToRead->dynSymbolNameTable = get_symbol_name_table(fd,tmpStrtabIndex,shdr);
+            symTabToRead->dynSymbolNameTable = get_name_table(fd,tmpStrtabIndex,shdr);
             symTabToRead->dynTableName = get_section_name(shdr,sectionNameTable,tmpSymtabIndex);
         }
     }
@@ -113,7 +98,7 @@ symbolTable *read_symbolTable(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char 
         symTabToRead->symtab = read_Elf32_Sym(fd, ehdr, shdr, &symTabToRead->nbSymbol, tmpSymtabIndex);
         if (symTabToRead->symtab != NULL) {
             tmpStrtabIndex = get_section_index(ehdr->e_shnum,shdr, SHT_STRTAB, 0, sectionNameTable);
-            symTabToRead->symbolNameTable = get_symbol_name_table(fd,tmpStrtabIndex,shdr);
+            symTabToRead->symbolNameTable = get_name_table(fd,tmpStrtabIndex,shdr);
             symTabToRead->symTableName = get_section_name(shdr,sectionNameTable,tmpSymtabIndex);
         }
     }

@@ -161,7 +161,7 @@ int main(int argc, char *argv[])
 	read_section_header(fd, ehdr, shdr);
 
 	/* Récupération table des noms */
-	table = get_section_name_table(fd, ehdr, shdr);
+	table = get_name_table(fd, ehdr->e_shstrndx, shdr);
 	if(args.section_str[0] != '\0')
 	{
 		for(i = 0; strcmp(args.section_str, get_section_name(shdr, table, i)) && i < ehdr->e_shnum - 1; i++);
@@ -419,7 +419,7 @@ void dump_section_header(Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char *table)
 
 void dump_section (int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, unsigned index){
 
-	char *table = get_section_name_table(fd, ehdr, shdr);
+	char *table = get_name_table(fd, ehdr->e_shstrndx, shdr);
 	char *name = get_section_name(shdr, table, index);
 
 	printf("\nAffichage hexadécimal de la section « %s »:\n\n", name);

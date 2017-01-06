@@ -35,11 +35,11 @@ int read_section_header(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr);
  * Lis la table des noms de section d'un fichier ELF 32 bits et retourne la table
  *
  * @param fd:   un descripteur de fichier (ELF32)
- * @param ehdr: une structure de type Elf32_Ehdr initialisée
+ * @param idxSection: index de la section
  * @param shdr: un tableau de structures de type Elf32_Shdr initialisé
  * @retourne la table des noms de section
  **/
-char *get_section_name_table(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr);
+char *get_name_table(int fd, int idxSection, Elf32_Shdr **shdr);
 
 /**
  * Retourne le nom d'une section donnée
