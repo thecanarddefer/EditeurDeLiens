@@ -41,6 +41,14 @@ void dump_section (int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, unsigned index);
 void dump_section_header(Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char *table);
 
 /**
+ * Renvoie si une relocation concerne un symbole dynamique ou non.
+ *
+ * @param rel_type: le type de la relocation.
+ * @retourne: 1 si la relocation porte sur un symbole dynamique, 0 sinon.
+ **/
+int isDynamicRel(int rel_type);
+
+/**
  * Affiche les réimplantations
  *
  * @param ehdr:  une structure de type Elf32_Ehdr initialisée

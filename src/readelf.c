@@ -657,8 +657,18 @@ char *relocation_type_to_string(Elf32_Ehdr *ehdr, Elf32_Word type)
 	return machine[i].type_str;
 }
 
-void dump_relocation(Elf32_Ehdr *ehdr, Data_Rel *drel, symbolTable *symTabFull)
-{
+int isDynamicRel(int rel_type) {
+	return ((elf32_r_type == R_ARM_TLS_DESC)
+	|| (elf32_r_type == R_ARM_TLS_DTPMOD32)
+	|| (elf32_r_type == R_ARM_TLS_DTPOFF32)
+	|| (elf32_r_type == R_ARM_TLS_TPOFF32)
+	|| (elf32_r_type == R_ARM_COPY)
+	|| (elf32_r_type == R_ARM_GLOB_DAT)
+	|| (elf32_r_type == R_ARM_JUMP_SLOT)
+	|| (elf32_r_type == R_ARM_RELATIVE));
+}
+
+void dump_relocation(Elf32_Ehdr *ehdr, Data_Rel *drel, symbolTable *symTabFull) {
 
 	/* REL */
 	for(int i = 0; i < drel->nb_rel; i++)
@@ -669,15 +679,8 @@ void dump_relocation(Elf32_Ehdr *ehdr, Data_Rel *drel, symbolTable *symTabFull)
 		for(int j = 0; j < drel->e_rel[i]; j++) {
 			printf("%08x  %08x %-17s", drel->rel[i][j]->r_offset, drel->rel[i][j]->r_info,
 			relocation_type_to_string(ehdr, ELF32_R_TYPE(drel->rel[i][j]->r_info)));
-
-			if ((ELF32_R_TYPE(drel->rel[i][j]->r_info) == R_ARM_TLS_DESC)
-			 || (ELF32_R_TYPE(drel->rel[i][j]->r_info) == R_ARM_TLS_DTPMOD32)
-			 || (ELF32_R_TYPE(drel->rel[i][j]->r_info) == R_ARM_TLS_DTPOFF32)
-			 || (ELF32_R_TYPE(drel->rel[i][j]->r_info) == R_ARM_TLS_TPOFF32)
-			 || (ELF32_R_TYPE(drel->rel[i][j]->r_info) == R_ARM_COPY)
-			 || (ELF32_R_TYPE(drel->rel[i][j]->r_info) == R_ARM_GLOB_DAT)
-			 || (ELF32_R_TYPE(drel->rel[i][j]->r_info) == R_ARM_JUMP_SLOT)
-			 || (ELF32_R_TYPE(drel->rel[i][j]->r_info) == R_ARM_RELATIVE)) {
+// TODO: (Gaetan) isDynamic
+			if (isDynamicRel(ELF32_R_TYPE(drel->rel[i][j]->r_info))) {
 				printf(" %08x   %s\n", symTabFull->dynsym[ELF32_R_SYM(drel->rel[i][j]->r_info)]->st_value,
 				get_symbol_name(symTabFull->dynsym, symTabFull->dynSymbolNameTable, ELF32_R_SYM(drel->rel[i][j]->r_info)));
 			}
@@ -699,14 +702,7 @@ void dump_relocation(Elf32_Ehdr *ehdr, Data_Rel *drel, symbolTable *symTabFull)
 			printf("%08x  %08x %-17s", drel->rela[i][j]->r_offset, drel->rela[i][j]->r_info,
 			relocation_type_to_string(ehdr, ELF32_R_TYPE(drel->rela[i][j]->r_info)));
 
-			if ((ELF32_R_TYPE(drel->rela[i][j]->r_info) == R_ARM_TLS_DESC)
-			 || (ELF32_R_TYPE(drel->rela[i][j]->r_info) == R_ARM_TLS_DTPMOD32)
-			 || (ELF32_R_TYPE(drel->rela[i][j]->r_info) == R_ARM_TLS_DTPOFF32)
-			 || (ELF32_R_TYPE(drel->rela[i][j]->r_info) == R_ARM_TLS_TPOFF32)
-			 || (ELF32_R_TYPE(drel->rela[i][j]->r_info) == R_ARM_COPY)
-			 || (ELF32_R_TYPE(drel->rela[i][j]->r_info) == R_ARM_GLOB_DAT)
-			 || (ELF32_R_TYPE(drel->rela[i][j]->r_info) == R_ARM_JUMP_SLOT)
-			 || (ELF32_R_TYPE(drel->rela[i][j]->r_info) == R_ARM_RELATIVE)) {
+			if (isDynamicRel(ELF32_R_TYPE(drel->rela[i][j]->r_info))) {
 				printf(" %08x   %s\n", symTabFull->dynsym[ELF32_R_SYM(drel->rela[i][j]->r_info)]->st_value,
 				get_symbol_name(symTabFull->dynsym, symTabFull->dynSymbolNameTable, ELF32_R_SYM(drel->rela[i][j]->r_info)));
 			}
