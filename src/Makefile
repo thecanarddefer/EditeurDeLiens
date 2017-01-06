@@ -4,13 +4,16 @@ EXE=readelf ld
 
 all: $(EXE)
 
-readelf: readelf.o elf_common.o readelf.h elf_common.h
+readelf: readelf.o elf_common.o symbolTable.o readelf.h elf_common.h symbolTable.h
 	$(CC) $(CFLAGS) -o $@ $^
 
 readelf.o: readelf.c readelf.h elf_common.h
 	$(CC) $(CFLAGS) -c $<
 
 elf_common.o: elf_common.c elf_common.h
+	$(CC) $(CFLAGS) -c $<
+
+symbolTable.o: symbolTable.c symbolTable.h
 	$(CC) $(CFLAGS) -c $<
 
 ld: ld.o elf_common.o ld.h elf_common.h

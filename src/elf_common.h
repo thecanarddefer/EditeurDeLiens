@@ -51,35 +51,24 @@ char *get_section_name_table(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr);
  **/
 char *get_section_name(Elf32_Shdr **shdr, char *table, unsigned index);
 
-/**
- * Lis la table des symboles d'un fichiers ELF 32 bits,
- * stocke et retourne les informations dans un tableau de structures
- *
- * @param fd:   un descripteur de fichier (ELF32)
- * @param ehdr: une structure de type Elf32_Ehdr initialisée
- * @param shdr: un tableau de structures de type Elf32_Shdr
- * @param idxStrTab: indice de la section .strtab
- * @retourne: le tableau de structure.
- **/
-Elf32_Sym **read_symtab(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, int *nbElt, int *idxStrTab);
+/*
+ * Retourne l'index d'une section selon son type.
+ * 
+ * @param nbSections: le nombre de sections
+ * @param shdr:  un tableau de structures de type Elf32_Shdr initialisé.
+ * @param shType: le type de la section recherchée.
+ * @param isDyn: Si l'on cherche une section dynamique. 
+ * @param sectionNameTable: une chaîne de caractères initialisée contenant la table des noms de section.
+ */
+int get_section_index(int nbSections, Elf32_Shdr **shdr, int shType, int isDyn, char *sectionNameTable);
 
 /**
- * Lis la table des noms de symbole .strtab et retourne la table
+ * Retourne le nom d'un symbole donné (par index)
  *
- * @param fd:   un descripteur de fichier (ELF32)
- * @param idxStrTab: index de la section .strtab
- * @param shdr: un tableau de structures de type Elf32_Shdr initialisé
- * @retourne la table des noms de symboles
- **/
-char *get_symbol_name_table(int fd, int idxStrTab, Elf32_Shdr **shdr);
-
-/**
- * Retourne le nom d'un symbole donné
- *
- * @param symtab:  un tableau de structure Elf32_Sym initialisé
- * @param table: une chaîne de caractères initialisée contenant la table des noms de section
- * @param index: le numéro d'une section
- * @retourne une chaîne de caractères correspondant au nom du symbole
+ * @param symtab:  un tableau de structure Elf32_Sym initialisé.
+ * @param table: une chaîne de caractères initialisée contenant la table des noms de section.
+ * @param index: le numéro d'une section.
+ * @retourne une chaîne de caractères correspondant au nom du symbole.
  **/
 char *get_symbol_name(Elf32_Sym **symtab, char *table, unsigned index);
 

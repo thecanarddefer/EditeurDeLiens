@@ -10,6 +10,7 @@
 #include <elf.h>
 #include "readelf.h"
 #include "elf_common.h"
+#include "symbolTable.h"
 
 
 static const struct
@@ -90,14 +91,14 @@ static void parse_options(int argc, char *argv[], Arguments *args)
 
 int main(int argc, char *argv[])
 {
-	int i, fd,
-		nbSymbol,
-		idxStrTab = -1;
+	int i, fd;
 	char *table = NULL;
 	Arguments args = { .display = DSP_NONE, .section_str = "" };
 	Elf32_Ehdr *ehdr;
 	Elf32_Shdr **shdr;
-	Elf32_Sym **symtab;
+
+	symbolTable *symTabFull;
+
 	Data_Rel *drel;
 
 	if(argc <= 2)
@@ -143,7 +144,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Lecture table des symboles */
-	symtab = read_symtab(fd, ehdr, shdr, &nbSymbol, &idxStrTab);
+	symTabFull = read_symbolTable(fd, ehdr, shdr, table);
 
 	/* Récupération des tables de réimplantation */
 	drel = malloc(sizeof(Data_Rel));
@@ -166,12 +167,12 @@ int main(int argc, char *argv[])
 			dump_section(fd, ehdr, shdr, args.section_ind);
 			break;
 		case DSP_SYMS:
-			table = get_symbol_name_table(fd,idxStrTab,shdr);
-			dump_symtab(nbSymbol, symtab, table);
+			// symbolTable = symtab(fd,ehdr,shdr,table);
+			displ_symbolTable(symTabFull);
 			break;
 		case DSP_RELOCS:
-			table = get_symbol_name_table(fd,idxStrTab,shdr);
-			dump_relocation(ehdr, drel, symtab, table);
+			// table = get_symbol_name_table(fd,idxStrTab,shdr);
+			dump_relocation(ehdr, drel, symTabFull->symtab, symTabFull->symTableName);
 			break;
 		default:
 			fprintf(stderr, "Cette option n'est pas encore implémentée.\n");
@@ -180,13 +181,13 @@ int main(int argc, char *argv[])
 	close(fd);
 	for(int i = 0; i < ehdr->e_shnum; i++)
 		free(shdr[i]);
-	//for(int i = 0; i < nbSymbol; i++) //FIXME
-	//	free(symtab[i]);
 	free(ehdr);
 	free(shdr);
-	//free(symtab); //FIXME
 	free(table);
 	free(drel);
+
+	// TODO: (Gaetan) Free symtab, dynsym, dynSymbolNameTable, symbolNameTable, symTabFull
+	// *TableName??
 
 	return 0;
 }
@@ -425,43 +426,6 @@ void dump_section (int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, unsigned index){
 		printf("\n");
 	}
 }
-
-
-/**************************** ÉTAPE 4 ****************************
-*                  Affichage de la table des symboles
-*****************************************************************/
-
-void dump_symtab(int nbElt, Elf32_Sym **symtab, char *table) {
-	char *STT_VAL[]={"NOTYPE","OBJECT","FUNC","SECTION","FILE","COMMON","TLS"};
-	char *STB_VAL[]={"LOCAL","GLOBAL","WEAK"};
-
-	int i = 1;
-
-	printf("\n Table de symboles « .symtab » contient %i entrées:\n", nbElt);
-	printf("   Num:    Valeur Tail Type    Lien   Vis      Ndx Nom\n");
-	for (i = 0; i < nbElt; ++i) {
-		printf("%6d: ", i);
-		printf("%08x ", symtab[i]->st_value);
-		printf("%5d ", symtab[i]->st_size);
-		printf("%-7s ", STT_VAL[ELF32_ST_TYPE(symtab[i]->st_info)]);
-		printf("%-6s ", STB_VAL[ELF32_ST_BIND(symtab[i]->st_info)]);
-		printf("DEFAULT  "); // TODO: Gerer les differentes possibilités (DEFAULT,HIDDEN,PROTECTED)
-		switch(symtab[i]->st_shndx) {
-			case SHN_UNDEF:
-				printf("UND ");
-				break;
-			case SHN_ABS:
-				printf("ABS ");
-				break;
-
-			default:
-				printf("%3i ", symtab[i]->st_shndx);
-		}
-		printf("%-10s ", get_symbol_name(symtab,table,i));
-		printf("\n");
-	}
-}
-
 
 /**************************** ÉTAPE 5 ****************************
 *               Affichage des tables de réimplantation
