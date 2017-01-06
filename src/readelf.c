@@ -658,14 +658,14 @@ char *relocation_type_to_string(Elf32_Ehdr *ehdr, Elf32_Word type)
 }
 
 int isDynamicRel(int rel_type) {
-	return ((elf32_r_type == R_ARM_TLS_DESC)
-	|| (elf32_r_type == R_ARM_TLS_DTPMOD32)
-	|| (elf32_r_type == R_ARM_TLS_DTPOFF32)
-	|| (elf32_r_type == R_ARM_TLS_TPOFF32)
-	|| (elf32_r_type == R_ARM_COPY)
-	|| (elf32_r_type == R_ARM_GLOB_DAT)
-	|| (elf32_r_type == R_ARM_JUMP_SLOT)
-	|| (elf32_r_type == R_ARM_RELATIVE));
+	return ((rel_type == R_ARM_TLS_DESC)
+	|| (rel_type == R_ARM_TLS_DTPMOD32)
+	|| (rel_type == R_ARM_TLS_DTPOFF32)
+	|| (rel_type == R_ARM_TLS_TPOFF32)
+	|| (rel_type == R_ARM_COPY)
+	|| (rel_type == R_ARM_GLOB_DAT)
+	|| (rel_type == R_ARM_JUMP_SLOT)
+	|| (rel_type == R_ARM_RELATIVE));
 }
 
 void dump_relocation(Elf32_Ehdr *ehdr, Data_Rel *drel, symbolTable *symTabFull) {
