@@ -3,6 +3,7 @@
 
 #include <elf.h>
 #include "elf_common.h"
+#include "symbolTable.h"
 
 
 enum DSP { DSP_NONE, DSP_FILE_HEADER, DSP_SECTION_HEADERS, DSP_HEX_DUMP, DSP_SYMS, DSP_RELOCS };
@@ -45,7 +46,7 @@ void dump_section_header(Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char *table);
  * @param ehdr:  une structure de type Elf32_Ehdr initialisée
  * @param drel:  une structure de type Data_Rel initialisée
  **/
-void dump_relocation(Elf32_Ehdr *ehdr, Data_Rel *drel, Elf32_Sym **symtab, char *table);
+void dump_relocation(Elf32_Ehdr *ehdr, Data_Rel *drel, symbolTable *symTabFull);
 
 
 #endif

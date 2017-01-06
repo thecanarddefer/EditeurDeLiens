@@ -205,8 +205,7 @@ int main(int argc, char *argv[])
 			displ_symbolTable(symTabFull);
 			break;
 		case DSP_RELOCS:
-			// TODO: Passer en argument symTabFull au lieu de symTabFull->symtab et symTabFull->symbolNameTable
-			dump_relocation(ehdr, drel, symTabFull->symtab, symTabFull->symbolNameTable);
+			dump_relocation(ehdr, drel, symTabFull);
 			break;
 		default:
 			fprintf(stderr, "Cette option n'est pas encore implémentée.\n");
@@ -658,22 +657,37 @@ char *relocation_type_to_string(Elf32_Ehdr *ehdr, Elf32_Word type)
 	return machine[i].type_str;
 }
 
-void dump_relocation(Elf32_Ehdr *ehdr, Data_Rel *drel, Elf32_Sym **symtab, char *table)
+void dump_relocation(Elf32_Ehdr *ehdr, Data_Rel *drel, symbolTable *symTabFull)
 {
-	// TODO: Distinction symbole dynamique
-	// p25 doc elf ARM
 
 	/* REL */
 	for(int i = 0; i < drel->nb_rel; i++)
 	{
 		printf("\nSection de relocalisation '%s' à l'adresse de décalage %#x contient %u entrées :\n",
 			"XXX", drel->a_rel[i], drel->e_rel[i]);
-		printf(" %-11s %-7s %-15s %-10s %s\n", "Décalage", "Info", "Type", "Val.-sym", "Noms-symboles");
-		for(int j = 0; j < drel->e_rel[i]; j++)
-			printf("%08x  %08x %-17s %08x   %s\n", drel->rel[i][j]->r_offset, drel->rel[i][j]->r_info,
-			relocation_type_to_string(ehdr, ELF32_R_TYPE(drel->rel[i][j]->r_info)),
-			symtab[ELF32_R_SYM(drel->rel[i][j]->r_info)]->st_value,
-			get_symbol_name(symtab, table, ELF32_R_SYM(drel->rel[i][j]->r_info)));
+		printf(" %-11s %7s %-15s %-10s %s\n", "Décalage", "Info", "Type", "Val.-sym", "Noms-symboles");
+		for(int j = 0; j < drel->e_rel[i]; j++) {
+			printf("%08x  %08x %-17s", drel->rel[i][j]->r_offset, drel->rel[i][j]->r_info,
+			relocation_type_to_string(ehdr, ELF32_R_TYPE(drel->rel[i][j]->r_info)));
+
+
+			if ((ELF32_R_TYPE(drel->rel[i][j]->r_info) == R_ARM_TLS_DESC)
+			 || (ELF32_R_TYPE(drel->rel[i][j]->r_info) == R_ARM_TLS_DTPMOD32)
+			 || (ELF32_R_TYPE(drel->rel[i][j]->r_info) == R_ARM_TLS_DTPOFF32)
+			 || (ELF32_R_TYPE(drel->rel[i][j]->r_info) == R_ARM_TLS_TPOFF32)
+			 || (ELF32_R_TYPE(drel->rel[i][j]->r_info) == R_ARM_COPY)
+			 || (ELF32_R_TYPE(drel->rel[i][j]->r_info) == R_ARM_GLOB_DAT)
+			 || (ELF32_R_TYPE(drel->rel[i][j]->r_info) == R_ARM_JUMP_SLOT)
+			 || (ELF32_R_TYPE(drel->rel[i][j]->r_info) == R_ARM_RELATIVE)) {
+				printf(" %08x   %s\n", symTabFull->dynsym[ELF32_R_SYM(drel->rel[i][j]->r_info)]->st_value,
+				get_symbol_name(symTabFull->dynsym, symTabFull->dynSymbolNameTable, ELF32_R_SYM(drel->rel[i][j]->r_info)));
+			}
+			else {
+				printf(" %08x   %s\n",
+				symTabFull->symtab[ELF32_R_SYM(drel->rel[i][j]->r_info)]->st_value,
+				get_symbol_name(symTabFull->symtab, symTabFull->symbolNameTable, ELF32_R_SYM(drel->rel[i][j]->r_info)));
+			}
+		}
 	}
 
 	/* RELA */
@@ -682,10 +696,26 @@ void dump_relocation(Elf32_Ehdr *ehdr, Data_Rel *drel, Elf32_Sym **symtab, char 
 		printf("\nSection de relocalisation '%s' à l'adresse de décalage %#x contient %u entrées :\n",
 			"XXX", drel->a_rela[i], drel->e_rela[i]);
 		printf(" %-11s %7s %-15s %-10s %s\n", "Décalage", "Info", "Type", "Val.-sym", "Noms-symboles");
-		for(int j = 0; j < drel->e_rela[i]; j++)
-			printf("%08x  %08x %-17s %08x   %s\n", drel->rela[i][j]->r_offset, drel->rela[i][j]->r_info,
-			relocation_type_to_string(ehdr, ELF32_R_TYPE(drel->rela[i][j]->r_info)),
-			symtab[ELF32_R_SYM(drel->rela[i][j]->r_info)]->st_value,
-			get_symbol_name(symtab, table, ELF32_R_SYM(drel->rela[i][j]->r_info)));
+		for(int j = 0; j < drel->e_rela[i]; j++) {
+			printf("%08x  %08x %-17s", drel->rela[i][j]->r_offset, drel->rela[i][j]->r_info,
+			relocation_type_to_string(ehdr, ELF32_R_TYPE(drel->rela[i][j]->r_info)));
+
+			if ((ELF32_R_TYPE(drel->rela[i][j]->r_info) == R_ARM_TLS_DESC)
+			 || (ELF32_R_TYPE(drel->rela[i][j]->r_info) == R_ARM_TLS_DTPMOD32)
+			 || (ELF32_R_TYPE(drel->rela[i][j]->r_info) == R_ARM_TLS_DTPOFF32)
+			 || (ELF32_R_TYPE(drel->rela[i][j]->r_info) == R_ARM_TLS_TPOFF32)
+			 || (ELF32_R_TYPE(drel->rela[i][j]->r_info) == R_ARM_COPY)
+			 || (ELF32_R_TYPE(drel->rela[i][j]->r_info) == R_ARM_GLOB_DAT)
+			 || (ELF32_R_TYPE(drel->rela[i][j]->r_info) == R_ARM_JUMP_SLOT)
+			 || (ELF32_R_TYPE(drel->rela[i][j]->r_info) == R_ARM_RELATIVE)) {
+				printf(" %08x   %s\n", symTabFull->dynsym[ELF32_R_SYM(drel->rela[i][j]->r_info)]->st_value,
+				get_symbol_name(symTabFull->dynsym, symTabFull->dynSymbolNameTable, ELF32_R_SYM(drel->rela[i][j]->r_info)));
+			}
+			else {
+				printf(" %08x   %s\n",
+				symTabFull->symtab[ELF32_R_SYM(drel->rela[i][j]->r_info)]->st_value,
+				get_symbol_name(symTabFull->symtab, symTabFull->symbolNameTable, ELF32_R_SYM(drel->rela[i][j]->r_info)));
+			}
+		}
 	}
 }
