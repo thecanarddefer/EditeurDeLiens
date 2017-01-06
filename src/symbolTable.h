@@ -16,6 +16,8 @@ typedef struct
 
     int nbDynSymbol; // Nombre de symboles dans .dynsym
     int nbSymbol; // Nombre de symboles dans .symtab
+    int dynsymIndex;
+    int symtabIndex;
 
 } symbolTable;
 
@@ -43,7 +45,7 @@ Elf32_Sym **read_Elf32_Sym(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, int *nbS
 
 /*
  * Lit est crée un structure contenant le contenu des tables de symbole .symtab et .dynsym
- *  
+ *
  * @param fd:   un descripteur de fichier (ELF32)
  * @param ehdr: une structure de type Elf32_Ehdr initialisée
  * @param shdr: un tableau de structures de type Elf32_Shdr
@@ -55,7 +57,7 @@ symbolTable *read_symbolTable(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char 
 
 /*
  * Affiche une table de symbole.
- *  
+ *
  * @param symTabToDisp: un pointeur vers une structure symbolTable contenant les informations à afficher.
  */
 void displ_symbolTable(symbolTable *symTabToDisp);
