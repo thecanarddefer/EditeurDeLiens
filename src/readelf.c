@@ -89,6 +89,43 @@ static void parse_options(int argc, char *argv[], Arguments *args)
 	}
 }
 
+void free_all(Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, symbolTable *symTabFull, Data_Rel *drel, char *table)
+{
+	for(int i = 0; i < ehdr->e_shnum; i++)
+		free(shdr[i]);
+	free(ehdr);
+	free(shdr);
+	free(table);
+	for(int i = 0; i < symTabFull->nbSymbol; i++)
+		free(symTabFull->symtab[i]);
+	free(symTabFull->symtab);
+	for(int i = 0; i < symTabFull->nbDynSymbol; i++)
+		free(symTabFull->dynsym[i]);
+	free(symTabFull->dynsym);
+	free(symTabFull->dynSymbolNameTable);
+	free(symTabFull->symbolNameTable);
+	free(symTabFull);
+	for(int i = 0; i < drel->nb_rel; i++)
+	{
+		for(int j = 0; j < drel->e_rel[i]; j++)
+			free(drel->rel[i][j]);
+		free(drel->rel[i]);
+	}
+	free(drel->rel);
+	for(int i = 0; i < drel->nb_rela; i++)
+	{
+		for(int j = 0; j < drel->e_rela[i]; j++)
+			free(drel->rela[i][j]);
+		free(drel->rela[i]);
+	}
+	free(drel->rela);
+	free(drel->e_rel);
+	free(drel->e_rela);
+	free(drel->a_rel);
+	free(drel->a_rela);
+	free(drel);
+}
+
 int main(int argc, char *argv[])
 {
 	int i, fd;
@@ -96,9 +133,7 @@ int main(int argc, char *argv[])
 	Arguments args = { .display = DSP_NONE, .section_str = "" };
 	Elf32_Ehdr *ehdr;
 	Elf32_Shdr **shdr;
-
 	symbolTable *symTabFull;
-
 	Data_Rel *drel;
 
 	if(argc <= 2)
@@ -178,15 +213,7 @@ int main(int argc, char *argv[])
 	}
 
 	close(fd);
-	for(int i = 0; i < ehdr->e_shnum; i++)
-		free(shdr[i]);
-	free(ehdr);
-	free(shdr);
-	free(table);
-	free(drel);
-
-	// TODO: (Gaetan) Free symtab, dynsym, dynSymbolNameTable, symbolNameTable, symTabFull
-	// *TableName??
+	free_all(ehdr, shdr, symTabFull, drel, table);
 
 	return 0;
 }
@@ -424,6 +451,8 @@ void dump_section (int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, unsigned index){
 		}
 		printf("\n");
 	}
+
+	free(table);
 }
 
 /**************************** ÉTAPE 5 ****************************
