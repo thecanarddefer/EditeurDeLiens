@@ -167,12 +167,11 @@ int main(int argc, char *argv[])
 			dump_section(fd, ehdr, shdr, args.section_ind);
 			break;
 		case DSP_SYMS:
-			// symbolTable = symtab(fd,ehdr,shdr,table);
 			displ_symbolTable(symTabFull);
 			break;
 		case DSP_RELOCS:
-			// table = get_symbol_name_table(fd,idxStrTab,shdr);
-			dump_relocation(ehdr, drel, symTabFull->symtab, symTabFull->symTableName);
+			// TODO: Passer en argument symTabFull au lieu de symTabFull->symtab et symTabFull->symbolNameTable
+			dump_relocation(ehdr, drel, symTabFull->symtab, symTabFull->symbolNameTable);
 			break;
 		default:
 			fprintf(stderr, "Cette option n'est pas encore implémentée.\n");
@@ -200,11 +199,11 @@ int main(int argc, char *argv[])
 void dump_header(Elf32_Ehdr *ehdr)
 {
 	printf("En-tête ELF :\n");
-	printf("Magique : ");
+	printf("%-11s", "Magique:");
 	for(int i = 0; i < EI_NIDENT; i++)
 		printf("%02x ", ehdr->e_ident[i]);
 
-	printf("\nClasse : ");
+	printf("\n %-35s", "Classe:");
 	switch(ehdr->e_ident[EI_CLASS])
 	{
 		case ELFCLASS32:
@@ -217,7 +216,7 @@ void dump_header(Elf32_Ehdr *ehdr)
 			printf("Inconnue\n");
 	}
 
-	printf("Données : ");
+	printf(" %-35s", "Données:");
 	switch(ehdr->e_ident[EI_DATA])
 	{
 		case ELFDATA2LSB:
@@ -230,9 +229,9 @@ void dump_header(Elf32_Ehdr *ehdr)
 			printf("Inconnue\n");
 	}
 
-	printf("Version : %i\n", ehdr->e_ident[EI_VERSION]);
+	printf(" %-35s%i\n", "Version:",ehdr->e_ident[EI_VERSION]);
 
-	printf("OS/ABI : ");
+	printf(" %-35s", "OS/ABI:");
 	switch(ehdr->e_ident[EI_OSABI])
 	{
 		case ELFOSABI_NONE:
@@ -245,7 +244,7 @@ void dump_header(Elf32_Ehdr *ehdr)
 			printf("Inconnu\n");
 	}
 
-	printf("Type : ");
+	printf(" %-35s", "Type:");
 	switch(ehdr->e_type)
 	{
 		case ET_REL:
@@ -264,7 +263,7 @@ void dump_header(Elf32_Ehdr *ehdr)
 			printf("Inconnu\n");
 	}
 
-	printf("Machine : ");
+	printf(" %-35s", "Machine:");
 	switch(ehdr->e_machine)
 	{
 		case EM_ARM:
@@ -283,17 +282,17 @@ void dump_header(Elf32_Ehdr *ehdr)
 			printf("Inconnue\n");
 	}
 
-	printf("Version : %#x\n", ehdr->e_version);
-	printf("Adresse du point d'entrée : %#x\n", ehdr->e_entry);
-	printf("Début des en-têtes de programme : %i (octets dans le fichier)\n", ehdr->e_phoff);
-	printf("Début des en-têtes de section : %i (octets dans le fichier)\n", ehdr->e_shoff);
-	printf("Fanions : %#x\n", ehdr->e_flags);
-	printf("Taille de cet en-tête : %i (octets)\n", ehdr->e_ehsize);
-	printf("Taille de l'en-tête du programme : %i (octets)\n", ehdr->e_phentsize);
-	printf("Nombre d'en-tête du programme : %i\n", ehdr->e_phnum);
-	printf("Taille des en-têtes de section : %i (octets)\n", ehdr->e_shentsize);
-	printf("Nombre d'en-têtes de section : %i\n", ehdr->e_shnum);
-	printf("Table d'indexes des chaînes d'en-tête de section : %i\n", ehdr->e_shstrndx);
+	printf(" %-35s%#x\n", "Version:", ehdr->e_version);
+	printf(" %-35s0x%x\n", "Adresse du point d'entrée:", ehdr->e_entry);
+	printf(" %-35s %2i (octets dans le fichier)\n", "Début des en-têtes de programme:", ehdr->e_phoff);
+	printf(" %-35s %8i (octets dans le fichier)\n", "Début des en-têtes de section:", ehdr->e_shoff);
+	printf(" %-35s%#x\n","Fanions:", ehdr->e_flags);
+	printf(" %-35s %i (octets)\n","Taille de cet en-tête:", ehdr->e_ehsize);
+	printf(" %-35s %i (octets)\n","Taille de l'en-tête du programme:", ehdr->e_phentsize);
+	printf(" %-35s %i\n","Nombre d'en-tête du programme:", ehdr->e_phnum);
+	printf(" %-35s %i (octets)\n","Taille des en-têtes de section:", ehdr->e_shentsize);
+	printf(" %-35s %i\n","Nombre d'en-têtes de section:", ehdr->e_shnum);
+	printf(" %-35s %i\n","Table d'indexes des chaînes d'en-tête de section:", ehdr->e_shstrndx);
 }
 
 
@@ -632,15 +631,19 @@ char *relocation_type_to_string(Elf32_Ehdr *ehdr, Elf32_Word type)
 
 void dump_relocation(Elf32_Ehdr *ehdr, Data_Rel *drel, Elf32_Sym **symtab, char *table)
 {
+	// TODO: Distinction symbole dynamique
+	// p25 doc elf ARM
+
 	/* REL */
 	for(int i = 0; i < drel->nb_rel; i++)
 	{
 		printf("\nSection de relocalisation '%s' à l'adresse de décalage %#x contient %u entrées :\n",
 			"XXX", drel->a_rel[i], drel->e_rel[i]);
-		printf("%-12s  %-12s %-22s %s\n", "Décalage", "Info", "Type", "Noms-symboles");
+		printf(" %-11s %-7s %-15s %-10s %s\n", "Décalage", "Info", "Type", "Val.-sym", "Noms-symboles");
 		for(int j = 0; j < drel->e_rel[i]; j++)
-			printf("%012x %012x %-22s %s\n", drel->rel[i][j]->r_offset, drel->rel[i][j]->r_info,
+			printf("%08x  %08x %-17s %08x   %s\n", drel->rel[i][j]->r_offset, drel->rel[i][j]->r_info,
 			relocation_type_to_string(ehdr, ELF32_R_TYPE(drel->rel[i][j]->r_info)),
+			symtab[ELF32_R_SYM(drel->rel[i][j]->r_info)]->st_value,
 			get_symbol_name(symtab, table, ELF32_R_SYM(drel->rel[i][j]->r_info)));
 	}
 
@@ -649,10 +652,11 @@ void dump_relocation(Elf32_Ehdr *ehdr, Data_Rel *drel, Elf32_Sym **symtab, char 
 	{
 		printf("\nSection de relocalisation '%s' à l'adresse de décalage %#x contient %u entrées :\n",
 			"XXX", drel->a_rela[i], drel->e_rela[i]);
-		printf("%-12s  %-12s %-22s %s\n", "Décalage", "Info", "Type", "Noms-symboles");
+		printf(" %-11s %7s %-15s %-10s %s\n", "Décalage", "Info", "Type", "Val.-sym", "Noms-symboles");
 		for(int j = 0; j < drel->e_rela[i]; j++)
-			printf("%012x %012x %-22s %s\n", drel->rela[i][j]->r_offset, drel->rela[i][j]->r_info,
+			printf("%08x  %08x %-17s %08x   %s\n", drel->rela[i][j]->r_offset, drel->rela[i][j]->r_info,
 			relocation_type_to_string(ehdr, ELF32_R_TYPE(drel->rela[i][j]->r_info)),
+			symtab[ELF32_R_SYM(drel->rela[i][j]->r_info)]->st_value,
 			get_symbol_name(symtab, table, ELF32_R_SYM(drel->rela[i][j]->r_info)));
 	}
 }
