@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
 	int fd2 = open(argv[2], O_RDONLY);
 	int fd_out = open(argv[3], O_WRONLY | O_CREAT, 0644);
 	unsigned nb_sections = 0;
-	
+
 	Elf32_Off offset = 0;
 	Elf32_Ehdr *ehdr1 = malloc(sizeof(Elf32_Ehdr));
 	Elf32_Ehdr *ehdr2 = malloc(sizeof(Elf32_Ehdr));
@@ -56,16 +56,16 @@ int main(int argc, char *argv[])
 		shdr2[i] = malloc(sizeof(Elf32_Shdr));
 	read_section_header(fd1, ehdr1, shdr1);
 	read_section_header(fd2, ehdr2, shdr2);
-	
-	char *table1 = get_section_name_table(fd1, ehdr1, shdr1);
-	char *table2 = get_section_name_table(fd2, ehdr2, shdr2);
+
+	char *table1 = get_name_table(fd1, ehdr1->e_shstrndx, shdr1);
+	char *table2 = get_name_table(fd2, ehdr2->e_shstrndx, shdr2);
 
 	/* On parcours les sections PROGBITS du premier fichier */
 	for(int i = 0; i < ehdr1->e_shnum; i++)
 	{
 		if(shdr1[i]->sh_type != SHT_PROGBITS && shdr1[i]->sh_type != SHT_NOBITS)
 			continue;
-	
+
 		/* Recherche si la section est présente dans le second fichier */
 		for(j = 0; (j < ehdr2->e_shnum) && strcmp(get_section_name(shdr1, table1, i), get_section_name(shdr2, table2, j)); j++);;
 
@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
 		fusion = realloc(fusion, sizeof(Fusion*) * nb_sections);
 		fusion[ind] = malloc(sizeof(Fusion));
 		fusion[ind]->ptr_shdr1 = shdr1[i];
-	
+
 		if(j != ehdr2->e_shnum)
 		{
 			/* La section est présente dans les deux fichiers */
@@ -100,10 +100,10 @@ int main(int argc, char *argv[])
 	{
 		if(shdr2[i]->sh_type != SHT_PROGBITS && shdr2[i]->sh_type != SHT_NOBITS)
 			continue;
-	
+
 		/* Recherche si la section est absente du premier fichier */
 		for(j = 0; (j < ehdr1->e_shnum) && strcmp(get_section_name(shdr1, table1, j), get_section_name(shdr2, table2, i)); j++);
-			
+
 		if(j == ehdr1->e_shnum)
 		{
 			nb_sections++;
@@ -133,7 +133,7 @@ int main(int argc, char *argv[])
 				/* On écrit la section du second fichier */
 				write_progbits_in_file(fd2, fd_out, fusion[i]->ptr_shdr2->sh_size, fusion[i]->ptr_shdr2->sh_offset);
 			}
-		}	
+		}
 		else
 		{
 			/* On écrit uniquement la section du second fichier */
@@ -153,10 +153,10 @@ int write_progbits_in_file(int fd_in, int fd_out, Elf32_Word size, Elf32_Off off
 {
 		ssize_t r, w;
 		unsigned char *buff = malloc(sizeof(unsigned char) * size);
-		
+
 		lseek(fd_in, offset, SEEK_SET);
 		r = read(fd_in, buff, size);
-		
+
 		w = write(fd_out, buff, size);
 		free(buff);
 
