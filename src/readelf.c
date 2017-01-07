@@ -417,36 +417,47 @@ void dump_section_header(Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char *table)
 *                Affichage du contenu d’une section
 *****************************************************************/
 
+#define BYTES_COUNT     16
+#define BLOCKS_COUNT    4
+#define BYTES_PER_BLOCK BYTES_COUNT / BLOCKS_COUNT
 void dump_section (int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, unsigned index){
 
 	char *table = get_name_table(fd, ehdr->e_shstrndx, shdr);
 	char *name = get_section_name(shdr, table, index);
 
-	printf("\nAffichage hexadécimal de la section « %s »:\n\n", name);
+	printf("\nAffichage hexadécimal de la section « %s » :\n\n", name);
 
 	Elf32_Shdr *shdrToDisplay = shdr[index];
 
-	unsigned char buffer[16];
+	unsigned char buffer, line[BYTES_COUNT];
 
 	lseek(fd, shdrToDisplay->sh_offset , SEEK_SET);
 
 	int i;
 	int j;
 	int k;
-	int nbByte = 0;
-	for (i=0; i<shdrToDisplay->sh_size; i+=16){
+	for (i=0; i<shdrToDisplay->sh_size;){
+		memset(line, ' ', BYTES_COUNT); // Simplifie l'affichage en ASCII si (i % BYTES_COUNT) != 0
 		printf("  0x%08x ", i + shdr[index]->sh_addr);
 
-		for (j=0; j<4; j++){
+		for (j=0; j<BLOCKS_COUNT; j++){
 
-			for (k=0; k<4; k++){
-				if ( nbByte < shdrToDisplay->sh_size ){
+			for (k=0; k<BYTES_PER_BLOCK; k++){
+				if ( i < shdrToDisplay->sh_size ){
 					read(fd, &buffer, 1);
-					printf("%02x", *buffer);
-					nbByte++;
+					line[i%BYTES_COUNT] = buffer;
+					printf("%02x", buffer);
+					i++;
+				}
+				else{
+					printf("  ");
 				}
 			}
 			printf(" ");
+		}
+
+		for(j=0; j<BYTES_COUNT; j++){
+			printf("%c", isprint(line[j]) ? line[j] : '.');
 		}
 		printf("\n");
 	}
