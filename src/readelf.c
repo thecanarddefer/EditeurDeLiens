@@ -89,13 +89,14 @@ static void parse_options(int argc, char *argv[], Arguments *args)
 	}
 }
 
-void free_all(Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, symbolTable *symTabFull, Data_Rel *drel, char *table)
+void free_all(Elf32_Ehdr *ehdr, Section_Table *sectab, symbolTable *symTabFull, Data_Rel *drel)
 {
 	for(int i = 0; i < ehdr->e_shnum; i++)
-		free(shdr[i]);
+		free(sectab->shdr[i]);
 	free(ehdr);
-	free(shdr);
-	free(table);
+	free(sectab->shdr);
+	free(sectab->sectionNameTable);
+	free(sectab);
 	for(int i = 0; i < symTabFull->nbSymbol; i++)
 		free(symTabFull->symtab[i]);
 	free(symTabFull->symtab);
@@ -128,11 +129,10 @@ void free_all(Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, symbolTable *symTabFull, Data
 
 int main(int argc, char *argv[])
 {
-	int i, fd;
-	char *table = NULL;
+	int fd;
 	Arguments args = { .display = DSP_NONE, .section_str = "" };
 	Elf32_Ehdr *ehdr;
-	Elf32_Shdr **shdr;
+	Section_Table *secTab;
 	symbolTable *symTabFull;
 	Data_Rel *drel;
 
@@ -150,19 +150,14 @@ int main(int argc, char *argv[])
 		return 2;
 	}
 
-	/* Lecture en-tête */
-	ehdr = malloc(sizeof(Elf32_Ehdr));
-	read_header(fd, ehdr);
+	/* Lecture en-tête ELF */
+	ehdr = read_elf_header(fd);
 
-	/* Lecture sections */
-	shdr = malloc(sizeof(Elf32_Shdr*) * ehdr->e_shnum);
-	for(i = 0; i < ehdr->e_shnum; i++)
-		shdr[i] = malloc(sizeof(Elf32_Shdr));
-	read_section_header(fd, ehdr, shdr);
+	/* Lecture table des sections */
+	secTab = read_sectionTable(fd, ehdr);
 
 	/* Récupération table des noms */
-	table = get_name_table(fd, ehdr->e_shstrndx, shdr);
-	if(args.section_str[0] != '\0')
+	/*if(args.section_str[0] != '\0')
 	{
 		for(i = 0; strcmp(args.section_str, get_section_name(shdr, table, i)) && i < ehdr->e_shnum - 1; i++);
 		if((strcmp(args.section_str, get_section_name(shdr, table, i))) && (i == ehdr->e_shnum - 1))
@@ -176,19 +171,13 @@ int main(int argc, char *argv[])
 	{
 		fprintf(stderr, "La section %i n'existe pas.\n", args.section_ind);
 		return 3;
-	}
+	}*/
 
 	/* Lecture table des symboles */
-	symTabFull = read_symbolTable(fd, ehdr, shdr, table);
+	symTabFull = read_symbolTable(fd, ehdr, secTab);
 
-	/* Récupération des tables de réimplantation */
-	drel = malloc(sizeof(Data_Rel));
-	drel->nb_rel = drel->nb_rela = 0;
-	drel->e_rel  = drel->e_rela  = NULL;
-	drel->a_rel  = drel->a_rela  = NULL;
-	drel->rel    = NULL;
-	drel->rela   = NULL;
-	read_relocation_header(fd, ehdr, shdr, drel);
+	/* Lecture tables de réimplantation */
+	drel = read_relocationTables(fd, ehdr, secTab->shdr);
 
 	switch(args.display)
 	{
@@ -196,10 +185,10 @@ int main(int argc, char *argv[])
 			dump_header(ehdr);
 			break;
 		case DSP_SECTION_HEADERS:
-			dump_section_header(ehdr, shdr, table);
+			dump_section_header(ehdr, secTab);
 			break;
 		case DSP_HEX_DUMP:
-			dump_section(fd, ehdr, shdr, args.section_ind);
+			dump_section(fd, ehdr, secTab->shdr, args.section_ind);
 			break;
 		case DSP_SYMS:
 			displ_symbolTable(symTabFull);
@@ -212,7 +201,7 @@ int main(int argc, char *argv[])
 	}
 
 	close(fd);
-	free_all(ehdr, shdr, symTabFull, drel, table);
+	free_all(ehdr, secTab, symTabFull, drel);
 
 	return 0;
 }
@@ -388,7 +377,7 @@ static char *flags_to_string(Elf32_Word flags)
 	return buff;
 }
 
-void dump_section_header(Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char *table)
+void dump_section_header(Elf32_Ehdr *ehdr, Section_Table *secTab)
 {
 	printf("Il y a %i en-têtes de section, débutant à l'adresse de décalage %#x :\n\n", ehdr->e_shnum, ehdr->e_shoff);
 	printf("En-têtes de section :\n");
@@ -396,10 +385,17 @@ void dump_section_header(Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char *table)
 		"Nr", "Nom", "Type", "Adresse", "Déc.", "Taille", "ES", "Flg", "Lk", "Inf", "Al");
 
 	for(int i = 0; i < ehdr->e_shnum; i++)
-		printf("[%2i] %-18s %-14s %08x %06x %06x %02x %2s %2i %2i %2i\n", i, get_section_name(shdr, table, i),
-			section_type_to_string(shdr[i]->sh_type), shdr[i]->sh_addr,
-			shdr[i]->sh_offset, shdr[i]->sh_size, shdr[i]->sh_entsize, flags_to_string(shdr[i]->sh_flags),
-			shdr[i]->sh_link, shdr[i]->sh_info, shdr[i]->sh_addralign);
+		printf("[%2i] %-18s %-14s %08x %06x %06x %02x %2s %2i %2i %2i\n", i,
+			get_section_name(secTab->shdr, secTab->sectionNameTable, i),
+			section_type_to_string(secTab->shdr[i]->sh_type),
+			secTab->shdr[i]->sh_addr,
+			secTab->shdr[i]->sh_offset,
+			secTab->shdr[i]->sh_size,
+			secTab->shdr[i]->sh_entsize,
+			flags_to_string(secTab->shdr[i]->sh_flags),
+			secTab->shdr[i]->sh_link,
+			secTab->shdr[i]->sh_info,
+			secTab->shdr[i]->sh_addralign);
 	printf("\nListe des fanions :\n");
 	printf("  W : écriture\n");
 	printf("  A : allocation\n");
@@ -680,7 +676,7 @@ int isDynamicRel(int rel_type) {
 }
 
 void dump_relocation(Elf32_Ehdr *ehdr, Data_Rel *drel, symbolTable *symTabFull) {
-
+//get_section_name(shdr1, table1, i)
 	/* REL */
 	for(int i = 0; i < drel->nb_rel; i++)
 	{

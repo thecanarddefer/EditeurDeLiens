@@ -9,12 +9,15 @@
 #include <elf.h>
 #include "elf_common.h"
 
+
 /**************************** ÉTAPE 1 ****************************
 *                     Affichage de l’en-tête
 *****************************************************************/
 
-int read_header(int fd, Elf32_Ehdr *ehdr)
+Elf32_Ehdr *read_elf_header(int fd)
 {
+	Elf32_Ehdr *ehdr = malloc(sizeof(Elf32_Ehdr));
+
 	read(fd, ehdr->e_ident, EI_NIDENT);
 	if(ehdr->e_ident[0] != ELFMAG0 || ehdr->e_ident[1] != ELFMAG1 || ehdr->e_ident[2] != ELFMAG2 || ehdr->e_ident[3] != ELFMAG3 || ehdr->e_ident[EI_CLASS] != ELFCLASS32)
 	{
@@ -36,7 +39,7 @@ int read_header(int fd, Elf32_Ehdr *ehdr)
 	read(fd, &ehdr->e_shnum,     sizeof(ehdr->e_shnum));
 	read(fd, &ehdr->e_shstrndx,  sizeof(ehdr->e_shstrndx));
 
-	return 0;
+	return ehdr;
 }
 
 
@@ -44,24 +47,30 @@ int read_header(int fd, Elf32_Ehdr *ehdr)
 *                Affichage de la table des sections
 *****************************************************************/
 
-int read_section_header(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr)
+Section_Table *read_sectionTable(int fd, Elf32_Ehdr *ehdr)
 {
+	Section_Table *secTab = malloc(sizeof(Section_Table));
+	secTab->shdr = malloc(sizeof(Elf32_Shdr*) * ehdr->e_shnum);
+
 	for(int i = 0; i < ehdr->e_shnum; i++)
 	{
+		secTab->shdr[i] = malloc(sizeof(Elf32_Shdr));
 		lseek(fd, ehdr->e_shoff + i * ehdr->e_shentsize, SEEK_SET);
-		read(fd, &shdr[i]->sh_name,      sizeof(shdr[i]->sh_name));
-		read(fd, &shdr[i]->sh_type,      sizeof(shdr[i]->sh_type));
-		read(fd, &shdr[i]->sh_flags,     sizeof(shdr[i]->sh_flags));
-		read(fd, &shdr[i]->sh_addr,      sizeof(shdr[i]->sh_addr));
-		read(fd, &shdr[i]->sh_offset,    sizeof(shdr[i]->sh_offset));
-		read(fd, &shdr[i]->sh_size,      sizeof(shdr[i]->sh_size));
-		read(fd, &shdr[i]->sh_link,      sizeof(shdr[i]->sh_link));
-		read(fd, &shdr[i]->sh_info,      sizeof(shdr[i]->sh_info));
-		read(fd, &shdr[i]->sh_addralign, sizeof(shdr[i]->sh_addralign));
-		read(fd, &shdr[i]->sh_entsize,   sizeof(shdr[i]->sh_entsize));
+		read(fd, &secTab->shdr[i]->sh_name,      sizeof(secTab->shdr[i]->sh_name));
+		read(fd, &secTab->shdr[i]->sh_type,      sizeof(secTab->shdr[i]->sh_type));
+		read(fd, &secTab->shdr[i]->sh_flags,     sizeof(secTab->shdr[i]->sh_flags));
+		read(fd, &secTab->shdr[i]->sh_addr,      sizeof(secTab->shdr[i]->sh_addr));
+		read(fd, &secTab->shdr[i]->sh_offset,    sizeof(secTab->shdr[i]->sh_offset));
+		read(fd, &secTab->shdr[i]->sh_size,      sizeof(secTab->shdr[i]->sh_size));
+		read(fd, &secTab->shdr[i]->sh_link,      sizeof(secTab->shdr[i]->sh_link));
+		read(fd, &secTab->shdr[i]->sh_info,      sizeof(secTab->shdr[i]->sh_info));
+		read(fd, &secTab->shdr[i]->sh_addralign, sizeof(secTab->shdr[i]->sh_addralign));
+		read(fd, &secTab->shdr[i]->sh_entsize,   sizeof(secTab->shdr[i]->sh_entsize));
 	}
 
-	return 0;
+	secTab->sectionNameTable = get_name_table(fd, ehdr->e_shstrndx, secTab->shdr);
+
+	return secTab;
 }
 
 char *get_name_table(int fd, int idxSection, Elf32_Shdr **shdr)
@@ -118,9 +127,20 @@ char *get_symbol_name(Elf32_Sym **symtab, char *table, unsigned index) {
 *               Affichage des tables de réimplantation
 *****************************************************************/
 
-int read_relocation_header(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, Data_Rel *drel)
+Data_Rel *read_relocationTables(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr)
 {
 	unsigned ind, size;
+	Data_Rel *drel = malloc(sizeof(Data_Rel));
+
+	/* Initialisation */
+	drel->nb_rel  = 0;
+	drel->nb_rela = 0;
+	drel->e_rel   = NULL;
+	drel->e_rela  = NULL;
+	drel->a_rel   = NULL;
+	drel->a_rela  = NULL;
+	drel->rel     = NULL;
+	drel->rela    = NULL;
 
 	for(int i = 0; i < ehdr->e_shnum; i++)
 	{
@@ -176,5 +196,5 @@ int read_relocation_header(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, Data_Rel
 		}
 	}
 
-	return 0;
+	return drel;
 }

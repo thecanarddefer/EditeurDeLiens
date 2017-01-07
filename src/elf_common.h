@@ -3,6 +3,13 @@
 
 #include <elf.h>
 
+
+typedef struct
+{
+	char *sectionNameTable; // Table des noms de sections
+	Elf32_Shdr **shdr;
+} Section_Table;
+
 typedef struct
 {
 	unsigned nb_rel, nb_rela;   // Nombre de sections concernées
@@ -16,20 +23,18 @@ typedef struct
  * Lis l'en-tête d'un fichier ELF 32 bits et stocke les informations dans une structure
  *
  * @param fd:   un descripteur de fichier (ELF32)
- * @param ehdr: une structure de type Elf32_Ehdr
- * @retourne 0 en cas de succès
+ * @retourne un pointeur sur une structure de type Elf32_Ehdr
  **/
-int read_header(int fd, Elf32_Ehdr *ehdr);
+Elf32_Ehdr *read_elf_header(int fd);
 
 /**
- * Lis les sections d'un fichiers ELF 32 bits et stocke les informations dans un tableau de structures
+ * Lis la table des sections et la table des noms de sections et stocke les informations dans une structure
  *
  * @param fd:   un descripteur de fichier (ELF32)
  * @param ehdr: une structure de type Elf32_Ehdr initialisée
- * @param shdr: un tableau de structures de type Elf32_Shdr
- * @retourne 0 en cas de succès
+ * @retourne un pointeur sur une structure de type Section_Table
  **/
-int read_section_header(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr);
+Section_Table *read_sectionTable(int fd, Elf32_Ehdr *ehdr);
 
 /**
  * Lis la table des noms de section d'un fichier ELF 32 bits et retourne la table
@@ -53,11 +58,11 @@ char *get_section_name(Elf32_Shdr **shdr, char *table, unsigned index);
 
 /*
  * Retourne l'index d'une section selon son type.
- * 
+ *
  * @param nbSections: le nombre de sections
  * @param shdr:  un tableau de structures de type Elf32_Shdr initialisé.
  * @param shType: le type de la section recherchée.
- * @param isDyn: Si l'on cherche une section dynamique. 
+ * @param isDyn: Si l'on cherche une section dynamique.
  * @param sectionNameTable: une chaîne de caractères initialisée contenant la table des noms de section.
  */
 int get_section_index(int nbSections, Elf32_Shdr **shdr, int shType, int isDyn, char *sectionNameTable);
@@ -73,15 +78,14 @@ int get_section_index(int nbSections, Elf32_Shdr **shdr, int shType, int isDyn, 
 char *get_symbol_name(Elf32_Sym **symtab, char *table, unsigned index);
 
 /**
- * Lis la table des réimplantations et stocke les informations dans une structure
+ * Lis les tables de réimplantations et stocke les informations dans une structure
  *
  * @param fd:   un descripteur de fichier (ELF32)
  * @param ehdr: une structure de type Elf32_Ehdr initialisée
  * @param shdr: un tableau de structures de type Elf32_Shdr initialisé
- * @param drel: une struture de type Data_Rel
- * @retourne 0 en cas de succès
+ * @retourne un pointeur sur une struture de type Data_Rel
  **/
-int read_relocation_header(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, Data_Rel *drel);
+Data_Rel *read_relocationTables(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr);
 
 
 #endif

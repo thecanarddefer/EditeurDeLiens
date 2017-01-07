@@ -2,6 +2,7 @@
 #define _SYMBOLTABLE_H_
 
 #include <elf.h>
+#include "elf_common.h"
 
 
 typedef struct
@@ -46,14 +47,13 @@ Elf32_Sym **read_Elf32_Sym(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, int *nbS
 /*
  * Lit est crée un structure contenant le contenu des tables de symbole .symtab et .dynsym
  *
- * @param fd:   un descripteur de fichier (ELF32)
- * @param ehdr: une structure de type Elf32_Ehdr initialisée
- * @param shdr: un tableau de structures de type Elf32_Shdr
- * @param sectionNameTable: Table des noms de sections
+ * @param fd:     un descripteur de fichier (ELF32)
+ * @param ehdr:   une structure de type Elf32_Ehdr initialisée
+ * @param sectab: une structure de type Section_Table initialisée
  *
  * @retourne: un pointeur vers une structure symbolTable.
  */
-symbolTable *read_symbolTable(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char *sectionNameTable);
+symbolTable *read_symbolTable(int fd, Elf32_Ehdr *ehdr, Section_Table *sectab);
 
 /*
  * Affiche une table de symbole.

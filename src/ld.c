@@ -10,20 +10,42 @@
 #include "ld.h"
 
 
-void free_all(Elf32_Ehdr *ehdr1, Elf32_Ehdr *ehdr2, Elf32_Shdr **shdr1, Elf32_Shdr **shdr2,
-	unsigned nb_sections, Fusion **fusion)
+void free_all(Elf32_Ehdr *ehdr, Section_Table *sectab, symbolTable *symTabFull/*, Data_Rel *drel*/)
 {
-	for(int i = 0; i < ehdr1->e_shnum; i++)
-		free(shdr1[i]);
-	free(shdr1);
-	for(int i = 0; i < ehdr2->e_shnum; i++)
-		free(shdr2[i]);
-	free(shdr2);
-	free(ehdr1);
-	free(ehdr2);
-	for(int i = 0; i < nb_sections; i++)
-		free(fusion[i]);
-	free(fusion);
+	for(int i = 0; i < ehdr->e_shnum; i++)
+		free(sectab->shdr[i]);
+	free(ehdr);
+	free(sectab->shdr);
+	free(sectab->sectionNameTable);
+	free(sectab);
+	for(int i = 0; i < symTabFull->nbSymbol; i++)
+		free(symTabFull->symtab[i]);
+	free(symTabFull->symtab);
+	for(int i = 0; i < symTabFull->nbDynSymbol; i++)
+		free(symTabFull->dynsym[i]);
+	free(symTabFull->dynsym);
+	free(symTabFull->dynSymbolNameTable);
+	free(symTabFull->symbolNameTable);
+	free(symTabFull);
+	/*for(int i = 0; i < drel->nb_rel; i++)
+	{
+		for(int j = 0; j < drel->e_rel[i]; j++)
+			free(drel->rel[i][j]);
+		free(drel->rel[i]);
+	}
+	free(drel->rel);
+	for(int i = 0; i < drel->nb_rela; i++)
+	{
+		for(int j = 0; j < drel->e_rela[i]; j++)
+			free(drel->rela[i][j]);
+		free(drel->rela[i]);
+	}
+	free(drel->rela);
+	free(drel->e_rel);
+	free(drel->e_rela);
+	free(drel->a_rel);
+	free(drel->a_rela);
+	free(drel);*/
 }
 
 int main(int argc, char *argv[])
@@ -35,66 +57,49 @@ int main(int argc, char *argv[])
 	}
 
 	int ind, j;
-	int fd1 = open(argv[1], O_RDONLY);
-	int fd2 = open(argv[2], O_RDONLY);
+	int fd1    = open(argv[1], O_RDONLY);
+	int fd2    = open(argv[2], O_RDONLY);
 	int fd_out = open(argv[3], O_WRONLY | O_CREAT, 0644);
-	unsigned nb_sections = 0;
-
-	Elf32_Off offset = 0;
-	Elf32_Word symbsize = 0;
-	Elf32_Ehdr *ehdr1 = malloc(sizeof(Elf32_Ehdr));
-	Elf32_Ehdr *ehdr2 = malloc(sizeof(Elf32_Ehdr));
-	Elf32_Shdr **shdr1, **shdr2;
-	symbolTable *st1 = malloc(sizeof(symbolTable));
-	symbolTable *st2 = malloc(sizeof(symbolTable));
-	symbolTable *st_out = malloc(sizeof(symbolTable));
-	Fusion **fusion = NULL;
-
-	read_header(fd1, ehdr1);
-	read_header(fd2, ehdr2);
-
-	shdr1 = malloc(sizeof(Elf32_Shdr*) * ehdr1->e_shnum);
-	shdr2 = malloc(sizeof(Elf32_Shdr*) * ehdr2->e_shnum);
-	for(int i = 0; i < ehdr1->e_shnum; i++)
-		shdr1[i] = malloc(sizeof(Elf32_Shdr));
-	for(int i = 0; i < ehdr2->e_shnum; i++)
-		shdr2[i] = malloc(sizeof(Elf32_Shdr));
-	read_section_header(fd1, ehdr1, shdr1);
-	read_section_header(fd2, ehdr2, shdr2);
-
-	char *table1 = get_name_table(fd1, ehdr1->e_shstrndx, shdr1);
-	char *table2 = get_name_table(fd2, ehdr2->e_shstrndx, shdr2);
-	st1 = read_symbolTable(fd1, ehdr1, shdr1, table1);
-	st2 = read_symbolTable(fd2, ehdr2, shdr2, table2);
+	unsigned nb_sections   = 0;
+	Elf32_Off offset       = 0;
+	Elf32_Word symbsize    = 0;
+	Elf32_Ehdr *ehdr1      = read_elf_header(fd1);
+	Elf32_Ehdr *ehdr2      = read_elf_header(fd2);
+	Section_Table *secTab1 = read_sectionTable(fd1, ehdr1);
+	Section_Table *secTab2 = read_sectionTable(fd2, ehdr2);
+	symbolTable *st1       = read_symbolTable(fd1, ehdr1, secTab1);
+	symbolTable *st2       = read_symbolTable(fd2, ehdr2, secTab2);
+	symbolTable *st_out    = malloc(sizeof(symbolTable));
+	Fusion **fusion        = NULL;
 
 	/* On parcours les sections PROGBITS du premier fichier */
 	for(int i = 0; i < ehdr1->e_shnum; i++)
 	{
-		if(shdr1[i]->sh_type != SHT_PROGBITS && shdr1[i]->sh_type != SHT_NOBITS)
+		if(secTab1->shdr[i]->sh_type != SHT_PROGBITS && secTab1->shdr[i]->sh_type != SHT_NOBITS)
 			continue;
 
 		/* Recherche si la section est présente dans le second fichier */
-		for(j = 0; (j < ehdr2->e_shnum) && strcmp(get_section_name(shdr1, table1, i), get_section_name(shdr2, table2, j)); j++);;
+		for(j = 0; (j < ehdr2->e_shnum) && strcmp(get_section_name(secTab1->shdr, secTab1->sectionNameTable, i), get_section_name(secTab2->shdr, secTab2->sectionNameTable, j)); j++);;
 
 		if(offset == 0)
-			offset = shdr1[i]->sh_offset;
+			offset = secTab1->shdr[i]->sh_offset;
 
 		nb_sections++;
 		ind = nb_sections - 1;
 		fusion = realloc(fusion, sizeof(Fusion*) * nb_sections);
 		fusion[ind] = malloc(sizeof(Fusion));
-		fusion[ind]->ptr_shdr1 = shdr1[i];
+		fusion[ind]->ptr_shdr1 = secTab1->shdr[i];
 
 		if(j != ehdr2->e_shnum)
 		{
 			/* La section est présente dans les deux fichiers */
-			fusion[ind]->size = shdr1[i]->sh_size + shdr2[j]->sh_size;
-			fusion[ind]->ptr_shdr2 = shdr2[j];
+			fusion[ind]->size = secTab1->shdr[i]->sh_size + secTab2->shdr[j]->sh_size;
+			fusion[ind]->ptr_shdr2 = secTab2->shdr[j];
 		}
 		else
 		{
 			/* La section est présente uniquement dans le premier fichier */
-			fusion[ind]->size = shdr1[i]->sh_size;
+			fusion[ind]->size = secTab1->shdr[i]->sh_size;
 			fusion[ind]->ptr_shdr2 = NULL;
 		}
 
@@ -105,11 +110,11 @@ int main(int argc, char *argv[])
 	/* On recherche les sections PROGBITS du second fichier qui ne sont pas présentes dans le premier */
 	for(int i = 0; i < ehdr2->e_shnum; i++)
 	{
-		if(shdr2[i]->sh_type != SHT_PROGBITS && shdr2[i]->sh_type != SHT_NOBITS)
+		if(secTab2->shdr[i]->sh_type != SHT_PROGBITS && secTab2->shdr[i]->sh_type != SHT_NOBITS)
 			continue;
 
 		/* Recherche si la section est absente du premier fichier */
-		for(j = 0; (j < ehdr1->e_shnum) && strcmp(get_section_name(shdr1, table1, j), get_section_name(shdr2, table2, i)); j++);
+		for(j = 0; (j < ehdr1->e_shnum) && strcmp(get_section_name(secTab1->shdr, secTab1->sectionNameTable, j), get_section_name(secTab2->shdr, secTab2->sectionNameTable, i)); j++);
 
 		if(j == ehdr1->e_shnum)
 		{
@@ -118,14 +123,14 @@ int main(int argc, char *argv[])
 			fusion = realloc(fusion, sizeof(Fusion*) * nb_sections);
 			fusion[ind] = malloc(sizeof(Fusion));
 			fusion[ind]->ptr_shdr1 = NULL;
-			fusion[ind]->ptr_shdr2 = shdr2[j];
-			fusion[ind]->size = shdr2[i]->sh_size;
+			fusion[ind]->ptr_shdr2 = secTab2->shdr[j];
+			fusion[ind]->size = secTab2->shdr[i]->sh_size;
 			fusion[ind]->offset = offset;
 			offset += fusion[ind]->size;
 		}
 	}
-	free(table1);
-	free(table2);
+	free(secTab1->sectionNameTable);
+	free(secTab2->sectionNameTable);
 
 	/* On crée le fichier de sortie qui contient les sections PROGBITS fusionnées */
 	lseek(fd_out, ehdr1->e_ehsize, SEEK_SET);
@@ -149,7 +154,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Clonage de st1 en st_out */
-	symbsize = shdr1[st1->symtabIndex]->sh_size;
+	symbsize = secTab1->shdr[st1->symtabIndex]->sh_size;
 	st_out->nbSymbol = st1->nbSymbol;
 	st_out->symbolNameTable = malloc(symbsize);
 	memcpy(st_out->symbolNameTable, st1->symbolNameTable, symbsize);
@@ -161,7 +166,7 @@ int main(int argc, char *argv[])
 		st_out->symtab[i] = malloc(sizeof(Elf32_Sym));
 		memcpy(st_out->symtab[i], st1->symtab[i], sizeof(Elf32_Sym));
 	}
-	//TODO Faire la table dynamique
+	//TODO Faire la secTab->sectionNameTable dynamique
 
 	/* On remplace les caractères '\0' par des espaces afin de pouvoir utiliser des fonctions de manipulation de chaines */
 	for(int i = 0; i < symbsize; i++)
@@ -178,10 +183,10 @@ int main(int argc, char *argv[])
 			ind = add_symbol_in_table(st_out, st2->symtab[i]);
 			if(strlen(buff) > 0)
 			{
-				/* On recherche si le symbole est déjà présent dans la nouvelle table */
+				/* On recherche si le symbole est déjà présent dans la nouvelle secTab->sectionNameTable */
 				if(strstr(st_out->symbolNameTable, buff) == NULL)
 				{
-					/* On ajoute le symbole à la nouvelle table */
+					/* On ajoute le symbole à la nouvelle secTab->sectionNameTable */
 					st_out->symtab[ind]->st_name = symbsize;
 					add_symbol_in_name_table(&st_out->symbolNameTable, buff, &symbsize);
 				}
@@ -197,19 +202,19 @@ int main(int argc, char *argv[])
 			/* Symbole global */
 			if(strlen(buff) == 0)
 			{
-				/* On ajoute le symbole à la nouvelle table */
+				/* On ajoute le symbole à la nouvelle secTab->sectionNameTable */
 				ind = add_symbol_in_table(st_out, st2->symtab[i]);
 				st_out->symtab[ind]->st_name = symbsize;
 				add_symbol_in_name_table(&st_out->symbolNameTable, buff, &symbsize);
 			}
 			else
 			{
-				/* On recherche si le symbole est déjà présent dans la nouvelle table */
+				/* On recherche si le symbole est déjà présent dans la nouvelle secTab->sectionNameTable */
 				for(ind = 0; (ind < st1->nbSymbol) && strcmp(get_symbol_name(st1->symtab, st1->symbolNameTable, ind), buff); ind++);
 
 				if(strstr(st_out->symbolNameTable, buff) == NULL)
 				{
-					/* On ajoute le symbole à la nouvelle table */
+					/* On ajoute le symbole à la nouvelle secTab->sectionNameTable */
 					ind = add_symbol_in_table(st_out, st2->symtab[i]);
 					st_out->symtab[ind]->st_name = symbsize;
 					add_symbol_in_name_table(&st_out->symbolNameTable, buff, &symbsize);
@@ -243,7 +248,11 @@ int main(int argc, char *argv[])
 	close(fd1);
 	close(fd2);
 	close(fd_out);
-	free_all(ehdr1, ehdr2, shdr1, shdr2, nb_sections, fusion);
+	free_all(ehdr1, secTab1, st1);
+	free_all(ehdr2, secTab2, st2);
+	for(int i = 0; i < nb_sections; i++)
+		free(fusion[i]);
+	free(fusion);
 
 	return 0;
 }

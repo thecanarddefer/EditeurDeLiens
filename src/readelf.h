@@ -34,11 +34,10 @@ void dump_section (int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, unsigned index);
 /**
  * Affiche les informations sur l'en-tête de section lu
  *
- * @param ehdr:  une structure de type Elf32_Ehdr initialisée
- * @param shdr:  un tableau de structures de type Elf32_Shdr initialisé
- * @param table: la table des noms de section
+ * @param ehdr:   une structure de type Elf32_Ehdr initialisée
+ * @param secTab: une structure de type Section_Table initialisée
  **/
-void dump_section_header(Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, char *table);
+void dump_section_header(Elf32_Ehdr *ehdr, Section_Table *secTab);
 
 /**
  * Renvoie si une relocation concerne un symbole dynamique ou non.
