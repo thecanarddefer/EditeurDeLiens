@@ -166,7 +166,7 @@ int main(int argc, char *argv[])
 		st_out->symtab[i] = malloc(sizeof(Elf32_Sym));
 		memcpy(st_out->symtab[i], st1->symtab[i], sizeof(Elf32_Sym));
 	}
-	//TODO Faire la secTab->sectionNameTable dynamique
+	//TODO Faire la table dynamique
 
 	/* On remplace les caractères '\0' par des espaces afin de pouvoir utiliser des fonctions de manipulation de chaines */
 	for(int i = 0; i < symbsize; i++)
@@ -183,10 +183,10 @@ int main(int argc, char *argv[])
 			ind = add_symbol_in_table(st_out, st2->symtab[i]);
 			if(strlen(buff) > 0)
 			{
-				/* On recherche si le symbole est déjà présent dans la nouvelle secTab->sectionNameTable */
+				/* On recherche si le symbole est déjà présent dans la nouvelle table */
 				if(strstr(st_out->symbolNameTable, buff) == NULL)
 				{
-					/* On ajoute le symbole à la nouvelle secTab->sectionNameTable */
+					/* On ajoute le symbole à la nouvelle table */
 					st_out->symtab[ind]->st_name = symbsize;
 					add_symbol_in_name_table(&st_out->symbolNameTable, buff, &symbsize);
 				}
@@ -202,19 +202,19 @@ int main(int argc, char *argv[])
 			/* Symbole global */
 			if(strlen(buff) == 0)
 			{
-				/* On ajoute le symbole à la nouvelle secTab->sectionNameTable */
+				/* On ajoute le symbole à la nouvelle table */
 				ind = add_symbol_in_table(st_out, st2->symtab[i]);
 				st_out->symtab[ind]->st_name = symbsize;
 				add_symbol_in_name_table(&st_out->symbolNameTable, buff, &symbsize);
 			}
 			else
 			{
-				/* On recherche si le symbole est déjà présent dans la nouvelle secTab->sectionNameTable */
+				/* On recherche si le symbole est déjà présent dans la nouvelle table */
 				for(ind = 0; (ind < st1->nbSymbol) && strcmp(get_symbol_name(st1->symtab, st1->symbolNameTable, ind), buff); ind++);
 
 				if(strstr(st_out->symbolNameTable, buff) == NULL)
 				{
-					/* On ajoute le symbole à la nouvelle secTab->sectionNameTable */
+					/* On ajoute le symbole à la nouvelle table */
 					ind = add_symbol_in_table(st_out, st2->symtab[i]);
 					st_out->symtab[ind]->st_name = symbsize;
 					add_symbol_in_name_table(&st_out->symbolNameTable, buff, &symbsize);

@@ -676,7 +676,6 @@ int isDynamicRel(int rel_type) {
 }
 
 void dump_relocation(Elf32_Ehdr *ehdr, Data_Rel *drel, symbolTable *symTabFull) {
-//get_section_name(shdr1, table1, i)
 	/* REL */
 	for(int i = 0; i < drel->nb_rel; i++)
 	{
