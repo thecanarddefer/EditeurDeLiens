@@ -68,10 +68,10 @@ static void parse_options(int argc, char *argv[], Arguments *args)
 				break;
 			case 'x':
 				args->display = DSP_HEX_DUMP;
-				if((optarg[0] == '.') && (isalpha(optarg[1])))
-					strcpy(args->section_str, optarg);
-				else
+				if(isdigit(optarg[0]))
 					args->section_ind = atoi(optarg);
+				else
+					strcpy(args->section_str, optarg);
 				break;
 			case 's':
 				args->display = DSP_SYMS;
@@ -156,23 +156,6 @@ int main(int argc, char *argv[])
 	/* Lecture table des sections */
 	secTab = read_sectionTable(fd, ehdr);
 
-	/* Récupération table des noms */
-	/*if(args.section_str[0] != '\0')
-	{
-		for(i = 0; strcmp(args.section_str, get_section_name(shdr, table, i)) && i < ehdr->e_shnum - 1; i++);
-		if((strcmp(args.section_str, get_section_name(shdr, table, i))) && (i == ehdr->e_shnum - 1))
-		{
-			fprintf(stderr, "La section '%s' n'existe pas.\n", args.section_str);
-			return 3;
-		}
-		args.section_ind = i;
-	}
-	else if(args.section_ind >= ehdr->e_shnum)
-	{
-		fprintf(stderr, "La section %i n'existe pas.\n", args.section_ind);
-		return 3;
-	}*/
-
 	/* Lecture table des symboles */
 	symTabFull = read_symbolTable(fd, ehdr, secTab);
 
@@ -188,7 +171,8 @@ int main(int argc, char *argv[])
 			dump_section_header(ehdr, secTab);
 			break;
 		case DSP_HEX_DUMP:
-			dump_section(fd, ehdr, secTab->shdr, args.section_ind);
+			if(is_valid_section(secTab, ehdr->e_shnum, args.section_str, &args.section_ind))
+				dump_section(fd, ehdr, secTab, args.section_ind);
 			break;
 		case DSP_SYMS:
 			displ_symbolTable(symTabFull);
@@ -413,17 +397,41 @@ void dump_section_header(Elf32_Ehdr *ehdr, Section_Table *secTab)
 *                Affichage du contenu d’une section
 *****************************************************************/
 
+int is_valid_section(Section_Table *secTab, Elf32_Half nb_sections, char *name, unsigned *index)
+{
+	int i;
+
+	if(*index >= nb_sections)
+	{
+		fprintf(stderr, "La section %i n'existe pas.\n", *index);
+		return 0;
+	}
+
+	if(name[0] != '\0')
+	{
+
+		for(i = 0; (i < nb_sections) && strcmp(name, get_section_name(secTab->shdr, secTab->sectionNameTable, i)); i++);
+
+		if((i == nb_sections) || strcmp(name, get_section_name(secTab->shdr, secTab->sectionNameTable, i)))
+		{
+			fprintf(stderr, "La section '%s' n'existe pas.\n",name);
+			return 0;
+		}
+		else
+			*index = i;
+	}
+
+	return 1;
+}
+
 #define BYTES_COUNT     16
 #define BLOCKS_COUNT    4
 #define BYTES_PER_BLOCK BYTES_COUNT / BLOCKS_COUNT
-void dump_section (int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, unsigned index){
+void dump_section (int fd, Elf32_Ehdr *ehdr, Section_Table *secTab, unsigned index){
 
-	char *table = get_name_table(fd, ehdr->e_shstrndx, shdr);
-	char *name = get_section_name(shdr, table, index);
+	printf("\nAffichage hexadécimal de la section « %s » :\n\n", get_section_name(secTab->shdr, secTab->sectionNameTable, index));
 
-	printf("\nAffichage hexadécimal de la section « %s » :\n\n", name);
-
-	Elf32_Shdr *shdrToDisplay = shdr[index];
+	Elf32_Shdr *shdrToDisplay = secTab->shdr[index];
 
 	unsigned char buffer, line[BYTES_COUNT];
 
@@ -434,7 +442,7 @@ void dump_section (int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, unsigned index){
 	int k;
 	for (i=0; i<shdrToDisplay->sh_size;){
 		memset(line, ' ', BYTES_COUNT); // Simplifie l'affichage en ASCII si (i % BYTES_COUNT) != 0
-		printf("  0x%08x ", i + shdr[index]->sh_addr);
+		printf("  0x%08x ", i + shdrToDisplay->sh_addr);
 
 		for (j=0; j<BLOCKS_COUNT; j++){
 
@@ -457,8 +465,6 @@ void dump_section (int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, unsigned index){
 		}
 		printf("\n");
 	}
-
-	free(table);
 }
 
 /**************************** ÉTAPE 5 ****************************

@@ -22,14 +22,26 @@ typedef struct
 void dump_header(Elf32_Ehdr *ehdr);
 
 /**
+ * Recherche si le numéro de section ou le nom de section est valide
+ *
+ * @param secTab:      une structure de type Section_Table initialisée
+ * @param nb_sections: le nombre de sections dans le fichier
+ * @param name:        le nom d'une section
+ * @param index:       le numéro d'une section
+ * @retourne une valeur non-nulle si la section est Val_GNU_MIPS_ABI_FP_DOUBLE
+ * EFFET DE BORD: s'il s'agit d'un nom de section et qu'il est valide, index est mis à jour
+ **/
+int is_valid_section(Section_Table *secTab, Elf32_Half nb_sections, char *name, unsigned *index);
+
+/**
  * Affiche le contenu brut d'une section
  *
  * @param fd:   un descripteur de fichier (ELF32)
  * @param ehdr: une structure de type Elf32_Ehdr initialisée
- * @param shdr:  un tableau de structures de type Elf32_Shdr initialisé
+ * @param secTab: une structure de type Section_Table initialisée
  * @param index: le numéro d'une section
  **/
-void dump_section (int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, unsigned index);
+void dump_section (int fd, Elf32_Ehdr *ehdr, Section_Table *secTab, unsigned index);
 
 /**
  * Affiche les informations sur l'en-tête de section lu
