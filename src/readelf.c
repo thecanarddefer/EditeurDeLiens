@@ -187,7 +187,10 @@ int main(int argc, char *argv[])
 	}
 
 	close(fd);
-	free_all(ehdr, secTab, symTabFull, drel);
+	destroy_elf_header(ehdr);
+	destroy_sectionTable(secTab);
+	destroy_symbolTable(symTabFull);
+	destroy_relocationTables(drel);
 
 	return 0;
 }

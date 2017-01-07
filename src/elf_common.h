@@ -6,6 +6,7 @@
 
 typedef struct
 {
+	unsigned nb_sections;
 	char *sectionNameTable; // Table des noms de sections
 	Elf32_Shdr **shdr;
 } Section_Table;
@@ -27,6 +28,13 @@ typedef struct
  * @retourne un pointeur sur une structure de type Elf32_Ehdr
  **/
 Elf32_Ehdr *read_elf_header(int fd);
+
+/**
+ * Libère la mémoire occupée par une structure Elf32_Ehdr
+ *
+ * @param ehdr: une structure de type Elf32_Ehdr initialisée
+ **/
+void destroy_elf_header(Elf32_Ehdr *ehdr);
 
 /**
  * Lis la table des sections et la table des noms de sections et stocke les informations dans une structure
@@ -56,6 +64,13 @@ char *get_name_table(int fd, int idxSection, Elf32_Shdr **shdr);
  * @retourne une chaîne de caractères correspondant au nom de la section
  **/
 char *get_section_name(Elf32_Shdr **shdr, char *table, unsigned index);
+
+/**
+ * Libère la mémoire occupée par une structure Section_Table
+ *
+ * @param secTab: une structure de type Section_Table initialisée
+ **/
+void destroy_sectionTable(Section_Table *secTab);
 
 /*
  * Retourne l'index d'une section selon son type.
@@ -87,6 +102,13 @@ char *get_symbol_name(Elf32_Sym **symtab, char *table, unsigned index);
  * @retourne un pointeur sur une struture de type Data_Rel
  **/
 Data_Rel *read_relocationTables(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr);
+
+/**
+ * Libère la mémoire occupée par une structure Data_Rel
+ *
+ * @param drel: une structure de type Data_Rel initialisée
+ **/
+void destroy_relocationTables(Data_Rel *drel);
 
 
 #endif

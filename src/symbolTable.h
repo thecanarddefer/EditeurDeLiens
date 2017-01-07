@@ -62,6 +62,12 @@ symbolTable *read_symbolTable(int fd, Elf32_Ehdr *ehdr, Section_Table *sectab);
  */
 void displ_symbolTable(symbolTable *symTabToDisp);
 
+/**
+ * Libère la mémoire occupée par une structure symbolTable
+ *
+ * @param symTabFull: une structure de type symbolTable initialisée
+ **/
+void destroy_symbolTable(symbolTable *symTabFull);
 
 
 #endif

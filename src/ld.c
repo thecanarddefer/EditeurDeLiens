@@ -10,44 +10,6 @@
 #include "ld.h"
 
 
-void free_all(Elf32_Ehdr *ehdr, Section_Table *sectab, symbolTable *symTabFull/*, Data_Rel *drel*/)
-{
-	for(int i = 0; i < ehdr->e_shnum; i++)
-		free(sectab->shdr[i]);
-	free(ehdr);
-	free(sectab->shdr);
-	free(sectab->sectionNameTable);
-	free(sectab);
-	for(int i = 0; i < symTabFull->nbSymbol; i++)
-		free(symTabFull->symtab[i]);
-	free(symTabFull->symtab);
-	for(int i = 0; i < symTabFull->nbDynSymbol; i++)
-		free(symTabFull->dynsym[i]);
-	free(symTabFull->dynsym);
-	free(symTabFull->dynSymbolNameTable);
-	free(symTabFull->symbolNameTable);
-	free(symTabFull);
-	/*for(int i = 0; i < drel->nb_rel; i++)
-	{
-		for(int j = 0; j < drel->e_rel[i]; j++)
-			free(drel->rel[i][j]);
-		free(drel->rel[i]);
-	}
-	free(drel->rel);
-	for(int i = 0; i < drel->nb_rela; i++)
-	{
-		for(int j = 0; j < drel->e_rela[i]; j++)
-			free(drel->rela[i][j]);
-		free(drel->rela[i]);
-	}
-	free(drel->rela);
-	free(drel->e_rel);
-	free(drel->e_rela);
-	free(drel->a_rel);
-	free(drel->a_rela);
-	free(drel);*/
-}
-
 int main(int argc, char *argv[])
 {
 	if(argc < 4)
@@ -248,8 +210,12 @@ int main(int argc, char *argv[])
 	close(fd1);
 	close(fd2);
 	close(fd_out);
-	free_all(ehdr1, secTab1, st1);
-	free_all(ehdr2, secTab2, st2);
+	destroy_elf_header(ehdr1);
+	destroy_elf_header(ehdr2);
+	destroy_sectionTable(secTab1);
+	destroy_sectionTable(secTab2);
+	destroy_symbolTable(st1);
+	destroy_symbolTable(st1);
 	for(int i = 0; i < nb_sections; i++)
 		free(fusion[i]);
 	free(fusion);

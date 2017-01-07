@@ -42,6 +42,11 @@ Elf32_Ehdr *read_elf_header(int fd)
 	return ehdr;
 }
 
+void destroy_elf_header(Elf32_Ehdr *ehdr)
+{
+	free(ehdr);
+}
+
 
 /**************************** ÉTAPE 2 ****************************
 *                Affichage de la table des sections
@@ -68,6 +73,7 @@ Section_Table *read_sectionTable(int fd, Elf32_Ehdr *ehdr)
 		read(fd, &secTab->shdr[i]->sh_entsize,   sizeof(secTab->shdr[i]->sh_entsize));
 	}
 
+	secTab->nb_sections      = ehdr->e_shnum;
 	secTab->sectionNameTable = get_name_table(fd, ehdr->e_shstrndx, secTab->shdr);
 
 	return secTab;
@@ -86,6 +92,15 @@ char *get_name_table(int fd, int idxSection, Elf32_Shdr **shdr)
 char *get_section_name(Elf32_Shdr **shdr, char *table, unsigned index)
 {
 	return &(table[shdr[index]->sh_name]);
+}
+
+void destroy_sectionTable(Section_Table *secTab)
+{
+	for(int i = 0; i < secTab->nb_sections; i++)
+		free(secTab->shdr[i]);
+	free(secTab->shdr);
+	free(secTab->sectionNameTable);
+	free(secTab);
 }
 
 
@@ -122,6 +137,7 @@ int get_section_index(int nbSections, Elf32_Shdr **shdr, int shType, int isDyn, 
 char *get_symbol_name(Elf32_Sym **symtab, char *table, unsigned index) {
     return &(table[symtab[index]->st_name]);
 }
+
 
 /**************************** ÉTAPE 5 ****************************
 *               Affichage des tables de réimplantation
@@ -203,4 +219,29 @@ Data_Rel *read_relocationTables(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr)
 	}
 
 	return drel;
+}
+
+void destroy_relocationTables(Data_Rel *drel)
+{
+	for(int i = 0; i < drel->nb_rel; i++)
+	{
+		for(int j = 0; j < drel->e_rel[i]; j++)
+			free(drel->rel[i][j]);
+		free(drel->rel[i]);
+	}
+	free(drel->rel);
+	for(int i = 0; i < drel->nb_rela; i++)
+	{
+		for(int j = 0; j < drel->e_rela[i]; j++)
+			free(drel->rela[i][j]);
+		free(drel->rela[i]);
+	}
+	free(drel->rela);
+	free(drel->e_rel);
+	free(drel->e_rela);
+	free(drel->a_rel);
+	free(drel->a_rela);
+	free(drel->i_rel);
+	free(drel->i_rela);
+	free(drel);
 }

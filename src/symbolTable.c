@@ -117,3 +117,16 @@ void displ_symbolTable(symbolTable *symTabToDisp) {
         dump_symtab(symTabToDisp->nbSymbol, symTabToDisp->symtab, symTabToDisp->symbolNameTable, symTabToDisp->symTableName);
     }
 }
+
+void destroy_symbolTable(symbolTable *symTabFull)
+{
+	for(int i = 0; i < symTabFull->nbSymbol; i++)
+		free(symTabFull->symtab[i]);
+	free(symTabFull->symtab);
+	for(int i = 0; i < symTabFull->nbDynSymbol; i++)
+		free(symTabFull->dynsym[i]);
+	free(symTabFull->dynsym);
+	free(symTabFull->dynSymbolNameTable);
+	free(symTabFull->symbolNameTable);
+	free(symTabFull);
+}
