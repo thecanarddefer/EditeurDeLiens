@@ -39,9 +39,9 @@ static void print_help(char *prgname)
 		printf("  -%c, --%-20s %s\n", opts[i].short_opt, opts[i].long_opt, opts[i].description);
 }
 
-static void parse_options(int argc, char *argv[], Arguments *args)
+static int parse_options(int argc, char *argv[], Arguments *args)
 {
-	int c = 0;
+	int c = 0, cpt = 1;
 	char shortopts[64] = "";
 	struct option longopts[sizeof(opts)/sizeof(opts[0]) - 1];
 
@@ -67,6 +67,7 @@ static void parse_options(int argc, char *argv[], Arguments *args)
 				args->display = DSP_SECTION_HEADERS;
 				break;
 			case 'x':
+				cpt++;
 				args->display = DSP_HEX_DUMP;
 				if(isdigit(optarg[0]))
 					args->section_ind = atoi(optarg);
@@ -86,83 +87,31 @@ static void parse_options(int argc, char *argv[], Arguments *args)
 				print_help(argv[0]);
 				exit(1);
 		}
+		cpt++;
 	}
+
+	return cpt;
 }
 
-void free_all(Elf32_Ehdr *ehdr, Section_Table *sectab, symbolTable *symTabFull, Data_Rel *drel)
-{
-	for(int i = 0; i < ehdr->e_shnum; i++)
-		free(sectab->shdr[i]);
-	free(ehdr);
-	free(sectab->shdr);
-	free(sectab->sectionNameTable);
-	free(sectab);
-	for(int i = 0; i < symTabFull->nbSymbol; i++)
-		free(symTabFull->symtab[i]);
-	free(symTabFull->symtab);
-	for(int i = 0; i < symTabFull->nbDynSymbol; i++)
-		free(symTabFull->dynsym[i]);
-	free(symTabFull->dynsym);
-	free(symTabFull->dynSymbolNameTable);
-	free(symTabFull->symbolNameTable);
-	free(symTabFull);
-	for(int i = 0; i < drel->nb_rel; i++)
-	{
-		for(int j = 0; j < drel->e_rel[i]; j++)
-			free(drel->rel[i][j]);
-		free(drel->rel[i]);
-	}
-	free(drel->rel);
-	for(int i = 0; i < drel->nb_rela; i++)
-	{
-		for(int j = 0; j < drel->e_rela[i]; j++)
-			free(drel->rela[i][j]);
-		free(drel->rela[i]);
-	}
-	free(drel->rela);
-	free(drel->e_rel);
-	free(drel->e_rela);
-	free(drel->a_rel);
-	free(drel->a_rela);
-	free(drel->i_rel);
-	free(drel->i_rela);
-	free(drel);
-}
-
-int main(int argc, char *argv[])
+static int parse_file(const char *filename, Arguments args)
 {
 	int fd;
-	Arguments args = { .display = DSP_NONE, .section_str = "" };
 	Elf32_Ehdr *ehdr;
 	Section_Table *secTab;
 	symbolTable *symTabFull;
 	Data_Rel *drel;
 
-	if(argc <= 2)
+	fd = open(filename, O_RDONLY);
+	if(fd < 0)
 	{
-		print_help(argv[0]);
+		fprintf(stderr, "Impossible d'ouvrir le fichier %s.\n", filename);
 		return 1;
 	}
 
-	parse_options(argc, argv, &args);
-	fd = open(argv[argc - 1], O_RDONLY); // Le dernier argument est le nom du fichier
-	if(fd < 0)
-	{
-		fprintf(stderr, "Impossible d'ouvrir le fichier %s.\n", argv[2]);
-		return 2;
-	}
-
-	/* Lecture en-tête ELF */
-	ehdr = read_elf_header(fd);
-
-	/* Lecture table des sections */
-	secTab = read_sectionTable(fd, ehdr);
-
-	/* Lecture table des symboles */
+	ehdr       = read_elf_header(fd);
+	secTab     = read_sectionTable(fd, ehdr);
 	symTabFull = read_symbolTable(fd, ehdr, secTab);
-
-	/* Lecture tables de réimplantation */
-	drel = read_relocationTables(fd, ehdr, secTab->shdr);
+	drel       = read_relocationTables(fd, ehdr, secTab->shdr);
 
 	switch(args.display)
 	{
@@ -183,7 +132,7 @@ int main(int argc, char *argv[])
 			dump_relocation(ehdr, secTab, symTabFull, drel);
 			break;
 		default:
-			fprintf(stderr, "Cette option n'est pas encore implémentée.\n");
+			break;
 	}
 
 	close(fd);
@@ -193,6 +142,29 @@ int main(int argc, char *argv[])
 	destroy_relocationTables(drel);
 
 	return 0;
+}
+
+int main(int argc, char *argv[])
+{
+	int first_filename;
+	int ret = 0;
+	Arguments args = { .display = DSP_NONE, .section_str = "" };
+
+	if(argc <= 2)
+	{
+		print_help(argv[0]);
+		return 1;
+	}
+
+	first_filename = parse_options(argc, argv, &args);
+	for(int i = first_filename; i < argc; i++)
+	{
+		if(first_filename < argc - 1)
+			printf("\nFichier \x1b[1m%s\x1b[0m :\n", argv[i]);
+		ret += parse_file(argv[i], args);
+	}
+
+	return ret;
 }
 
 
