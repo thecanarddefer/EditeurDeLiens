@@ -63,10 +63,11 @@ int isDynamicRel(int rel_type);
  * Affiche les réimplantations
  *
  * @param ehdr:  une structure de type Elf32_Ehdr initialisée
- * @param drel:  une structure de type Data_Rel initialisée
+ * @param secTab: une structure de type Section_Table initialisée
  * @param symTabFull: une structure de type symbolTable
+ * @param drel:  une structure de type Data_Rel initialisée
  **/
-void dump_relocation(Elf32_Ehdr *ehdr, Data_Rel *drel, symbolTable *symTabFull);
+void dump_relocation(Elf32_Ehdr *ehdr, Section_Table *secTab, symbolTable *symTabFull, Data_Rel *drel);
 
 
 #endif

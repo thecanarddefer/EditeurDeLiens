@@ -124,6 +124,8 @@ void free_all(Elf32_Ehdr *ehdr, Section_Table *sectab, symbolTable *symTabFull, 
 	free(drel->e_rela);
 	free(drel->a_rel);
 	free(drel->a_rela);
+	free(drel->i_rel);
+	free(drel->i_rela);
 	free(drel);
 }
 
@@ -178,7 +180,7 @@ int main(int argc, char *argv[])
 			displ_symbolTable(symTabFull);
 			break;
 		case DSP_RELOCS:
-			dump_relocation(ehdr, drel, symTabFull);
+			dump_relocation(ehdr, secTab, symTabFull, drel);
 			break;
 		default:
 			fprintf(stderr, "Cette option n'est pas encore implémentée.\n");
@@ -681,48 +683,58 @@ int isDynamicRel(int rel_type) {
 	|| (rel_type == R_ARM_RELATIVE));
 }
 
-void dump_relocation(Elf32_Ehdr *ehdr, Data_Rel *drel, symbolTable *symTabFull) {
-	/* REL */
+static inline Elf32_Addr get_symbol_value_generic(symbolTable *symTabFull, Elf32_Word info)
+{
+	return isDynamicRel(ELF32_R_TYPE(info)) ?
+		symTabFull->dynsym[ELF32_R_SYM(info)]->st_value :
+		symTabFull->symtab[ELF32_R_SYM(info)]->st_value;
+}
+
+static inline char *get_symbol_name_generic(symbolTable *symTabFull, Elf32_Word info)
+{
+	return isDynamicRel(ELF32_R_TYPE(info)) ?
+		get_symbol_name(symTabFull->dynsym, symTabFull->dynSymbolNameTable, ELF32_R_SYM(info)) :
+		get_symbol_name(symTabFull->symtab, symTabFull->symbolNameTable,    ELF32_R_SYM(info));
+}
+
+void dump_relocation(Elf32_Ehdr *ehdr, Section_Table *secTab, symbolTable *symTabFull, Data_Rel *drel)
+{
+	/* Table de réimplantation sans addenda */
 	for(int i = 0; i < drel->nb_rel; i++)
 	{
 		printf("\nSection de relocalisation '%s' à l'adresse de décalage %#x contient %u entrées :\n",
-			"XXX", drel->a_rel[i], drel->e_rel[i]);
-		printf(" %-11s %7s %-15s %-10s %s\n", "Décalage", "Info", "Type", "Val.-sym", "Noms-symboles");
-		for(int j = 0; j < drel->e_rel[i]; j++) {
-			printf("%08x  %08x %-17s", drel->rel[i][j]->r_offset, drel->rel[i][j]->r_info,
-			relocation_type_to_string(ehdr, ELF32_R_TYPE(drel->rel[i][j]->r_info)));
-// TODO: (Gaetan) isDynamic
-			if (isDynamicRel(ELF32_R_TYPE(drel->rel[i][j]->r_info))) {
-				printf(" %08x   %s\n", symTabFull->dynsym[ELF32_R_SYM(drel->rel[i][j]->r_info)]->st_value,
-				get_symbol_name(symTabFull->dynsym, symTabFull->dynSymbolNameTable, ELF32_R_SYM(drel->rel[i][j]->r_info)));
-			}
-			else {
-				printf(" %08x   %s\n",
-				symTabFull->symtab[ELF32_R_SYM(drel->rel[i][j]->r_info)]->st_value,
-				get_symbol_name(symTabFull->symtab, symTabFull->symbolNameTable, ELF32_R_SYM(drel->rel[i][j]->r_info)));
-			}
+			get_section_name(secTab->shdr, secTab->sectionNameTable, drel->i_rel[i]),
+			drel->a_rel[i],
+			drel->e_rel[i]);
+		printf("%-8s  %-8s  %-23s  %-8s  %s\n", "Décalage", "Info", "Type", "Val.-sym", "Noms-symboles");
+		for(int j = 0; j < drel->e_rel[i]; j++)
+		{
+			printf("%08x  %08x  %-23s  %08x  %s\n",
+				drel->rel[i][j]->r_offset,
+				drel->rel[i][j]->r_info,
+				relocation_type_to_string(ehdr, ELF32_R_TYPE(drel->rel[i][j]->r_info)),
+				get_symbol_value_generic(symTabFull, drel->rel[i][j]->r_info),
+				get_symbol_name_generic(symTabFull,  drel->rel[i][j]->r_info));
 		}
 	}
 
-	/* RELA */
+	/* Table de réimplantation avec addenda */
 	for(int i = 0; i < drel->nb_rela; i++)
 	{
 		printf("\nSection de relocalisation '%s' à l'adresse de décalage %#x contient %u entrées :\n",
-			"XXX", drel->a_rela[i], drel->e_rela[i]);
-		printf(" %-11s %7s %-15s %-10s %s\n", "Décalage", "Info", "Type", "Val.-sym", "Noms-symboles");
-		for(int j = 0; j < drel->e_rela[i]; j++) {
-			printf("%08x  %08x %-17s", drel->rela[i][j]->r_offset, drel->rela[i][j]->r_info,
-			relocation_type_to_string(ehdr, ELF32_R_TYPE(drel->rela[i][j]->r_info)));
-
-			if (isDynamicRel(ELF32_R_TYPE(drel->rela[i][j]->r_info))) {
-				printf(" %08x   %s\n", symTabFull->dynsym[ELF32_R_SYM(drel->rela[i][j]->r_info)]->st_value,
-				get_symbol_name(symTabFull->dynsym, symTabFull->dynSymbolNameTable, ELF32_R_SYM(drel->rela[i][j]->r_info)));
-			}
-			else {
-				printf(" %08x   %s\n",
-				symTabFull->symtab[ELF32_R_SYM(drel->rela[i][j]->r_info)]->st_value,
-				get_symbol_name(symTabFull->symtab, symTabFull->symbolNameTable, ELF32_R_SYM(drel->rela[i][j]->r_info)));
-			}
+			get_section_name(secTab->shdr, secTab->sectionNameTable, drel->i_rela[i]),
+			drel->a_rela[i],
+			drel->e_rela[i]);
+		printf("%-8s  %-8s  %-23s  %-8s  %s\n", "Décalage", "Info", "Type", "Val.-sym", "Noms-symboles+ Addenda");
+		for(int j = 0; j < drel->e_rela[i]; j++)
+		{
+			printf("%08x  %08x  %-23s  %08x  %s + %i\n",
+				drel->rela[i][j]->r_offset,
+				drel->rela[i][j]->r_info,
+				relocation_type_to_string(ehdr, ELF32_R_TYPE(drel->rela[i][j]->r_info)),
+				get_symbol_value_generic(symTabFull, drel->rela[i][j]->r_info),
+				get_symbol_name_generic(symTabFull,  drel->rela[i][j]->r_info),
+				drel->rela[i][j]->r_addend);
 		}
 	}
 }

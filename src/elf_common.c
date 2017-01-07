@@ -139,6 +139,8 @@ Data_Rel *read_relocationTables(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr)
 	drel->e_rela  = NULL;
 	drel->a_rel   = NULL;
 	drel->a_rela  = NULL;
+	drel->i_rel   = NULL;
+	drel->i_rela  = NULL;
 	drel->rel     = NULL;
 	drel->rela    = NULL;
 
@@ -152,8 +154,9 @@ Data_Rel *read_relocationTables(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr)
 			size = shdr[i]->sh_size / sizeof(Elf32_Rel);
 
 			/* Allocations */
-			drel->e_rel    = realloc(drel->e_rel, sizeof(unsigned) * drel->nb_rel);
+			drel->e_rel    = realloc(drel->e_rel, sizeof(unsigned)   * drel->nb_rel);
 			drel->a_rel    = realloc(drel->a_rel, sizeof(Elf32_Addr) * drel->nb_rel);
+			drel->i_rel    = realloc(drel->i_rel, sizeof(unsigned)   * drel->nb_rel);
 			drel->rel      = realloc(drel->rel,   sizeof(Elf32_Rel*) * drel->nb_rel);
 			drel->rel[ind] = malloc(sizeof(Elf32_Rel*) * size);
 			for(int j = 0; j < size; j++)
@@ -161,6 +164,7 @@ Data_Rel *read_relocationTables(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr)
 
 			drel->e_rel[ind] = size;
 			drel->a_rel[ind] = shdr[i]->sh_offset;
+			drel->i_rel[ind] = i;
 
 			/* Récupération de la table des réimplantations */
 			for(int j = 0; j < size; j++)
@@ -176,8 +180,9 @@ Data_Rel *read_relocationTables(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr)
 			size = shdr[i]->sh_size / sizeof(Elf32_Rela);
 
 			/* Allocations */
-			drel->e_rela    = realloc(drel->e_rela, sizeof(unsigned) * drel->nb_rela);
-			drel->a_rela    = realloc(drel->a_rela, sizeof(Elf32_Addr) * drel->nb_rela);
+			drel->e_rela    = realloc(drel->e_rela, sizeof(unsigned)    * drel->nb_rela);
+			drel->a_rela    = realloc(drel->a_rela, sizeof(Elf32_Addr)  * drel->nb_rela);
+			drel->i_rela    = realloc(drel->i_rela, sizeof(unsigned)    * drel->nb_rela);
 			drel->rela      = realloc(drel->rela,   sizeof(Elf32_Rela*) * drel->nb_rela);
 			drel->rela[ind] = malloc(sizeof(Elf32_Rela*) * size);
 			for(int j = 0; j < size; j++)
@@ -185,6 +190,7 @@ Data_Rel *read_relocationTables(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr)
 
 			drel->e_rela[ind] = size;
 			drel->a_rela[ind] = shdr[i]->sh_offset;
+			drel->i_rela[ind] = i;
 
 			/* Récupération de la table des réimplantations */
 			for(int j = 0; j < size; j++)

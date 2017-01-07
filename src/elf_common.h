@@ -14,6 +14,7 @@ typedef struct
 {
 	unsigned nb_rel, nb_rela;   // Nombre de sections concernées
 	unsigned *e_rel, *e_rela;   // Nombre d'entrées par sections
+	unsigned *i_rel, *i_rela;   // Index de la section correspondante
 	Elf32_Addr *a_rel, *a_rela; // Adresse de décalage par sections
 	Elf32_Rel  ***rel;
 	Elf32_Rela ***rela;
