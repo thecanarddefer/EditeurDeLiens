@@ -7,6 +7,7 @@
 
 typedef struct
 {
+	char section[32];
 	Elf32_Shdr *ptr_shdr1;
 	Elf32_Shdr *ptr_shdr2;
 	Elf32_Word size;
@@ -26,6 +27,17 @@ typedef struct
 int write_progbits_in_file(int fd_in, int fd_out, Elf32_Word size, Elf32_Off offset);
 
 /**
+ * Met à jour l'index de section d'un symbole
+ *
+ * @param fusion:      une tableau de structures Fusion initialisé
+ * @param nb_sections: le nombre de sections depuis la fusion
+ * @param secTab:      une structure de type Section_Table initialisée
+ * @param symbol:      un symbole de type Elf32_Sym à corriger
+ **/
+void update_section_index_in_symbol(Fusion **fusion, unsigned nb_sections, Section_Table *secTab, Elf32_Sym *symbol);
+
+
+/**
  * Ajoute un symbole à la table des symboles
  *
  * @param st:     une structure de type symbolTable
@@ -43,6 +55,13 @@ int add_symbol_in_table(symbolTable *st, Elf32_Sym *symtab);
  * POST-CONDITION:         size est mis à jour (size + taille de symbol + 1)
  **/
 void add_symbol_in_name_table(char **symbolNameTable, char *symbol, Elf32_Word *size);
+
+/**
+ * Trie une table des symboles
+ *
+ * @param st: une structure de type symbolTable
+ **/
+void sort_new_symbol_table(symbolTable *st);
 
 
 #endif
