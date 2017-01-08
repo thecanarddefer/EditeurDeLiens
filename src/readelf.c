@@ -151,10 +151,10 @@ static int parse_file(const char *filename, Arguments **args)
 				dump_header(ehdr);
 				break;
 			case DSP_SECTION_HEADERS:
-				dump_section_header(ehdr, secTab);
+				dump_section_header(secTab, ehdr->e_shoff);
 				break;
 			case DSP_HEX_DUMP:
-				if(is_valid_section(secTab, ehdr->e_shnum, args[arg]->section_str, &args[arg]->section_ind))
+				if(is_valid_section(secTab, args[arg]->section_str, &args[arg]->section_ind))
 					dump_section(fd, ehdr, secTab, args[arg]->section_ind);
 				break;
 			case DSP_SYMS:
@@ -380,14 +380,14 @@ static char *flags_to_string(Elf32_Word flags)
 	return buff;
 }
 
-void dump_section_header(Elf32_Ehdr *ehdr, Section_Table *secTab)
+void dump_section_header(Section_Table *secTab, Elf32_Off offset)
 {
-	printf("Il y a %i en-têtes de section, débutant à l'adresse de décalage %#x :\n\n", ehdr->e_shnum, ehdr->e_shoff);
+	printf("Il y a %i en-têtes de section, débutant à l'adresse de décalage %#x :\n\n", secTab->nb_sections, offset);
 	printf("En-têtes de section :\n");
 	printf("[%2s] %-18s %-14s %8s %6s %6s %2s %2s %2s %2s %2s\n",
 		"Nr", "Nom", "Type", "Adresse", "Déc.", "Taille", "ES", "Flg", "Lk", "Inf", "Al");
 
-	for(int i = 0; i < ehdr->e_shnum; i++)
+	for(int i = 0; i < secTab->nb_sections; i++)
 		printf("[%2i] %-18s %-14s %08x %06x %06x %02x %2s %2i %2i %2i\n", i,
 			get_section_name(secTab->shdr, secTab->sectionNameTable, i),
 			section_type_to_string(secTab->shdr[i]->sh_type),
@@ -416,11 +416,11 @@ void dump_section_header(Elf32_Ehdr *ehdr, Section_Table *secTab)
 *                Affichage du contenu d’une section
 *****************************************************************/
 
-int is_valid_section(Section_Table *secTab, Elf32_Half nb_sections, char *name, unsigned *index)
+int is_valid_section(Section_Table *secTab, char *name, unsigned *index)
 {
 	int i;
 
-	if(*index >= nb_sections)
+	if(*index >= secTab->nb_sections)
 	{
 		fprintf(stderr, "La section %i n'existe pas.\n", *index);
 		return 0;
@@ -429,9 +429,9 @@ int is_valid_section(Section_Table *secTab, Elf32_Half nb_sections, char *name, 
 	if(name[0] != '\0')
 	{
 
-		for(i = 0; (i < nb_sections) && strcmp(name, get_section_name(secTab->shdr, secTab->sectionNameTable, i)); i++);
+		for(i = 0; (i < secTab->nb_sections) && strcmp(name, get_section_name(secTab->shdr, secTab->sectionNameTable, i)); i++);
 
-		if((i == nb_sections) || strcmp(name, get_section_name(secTab->shdr, secTab->sectionNameTable, i)))
+		if((i == secTab->nb_sections) || strcmp(name, get_section_name(secTab->shdr, secTab->sectionNameTable, i)))
 		{
 			fprintf(stderr, "La section '%s' n'existe pas.\n",name);
 			return 0;

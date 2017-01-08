@@ -35,13 +35,13 @@ int main(int argc, char *argv[])
 	Fusion **fusion        = NULL;
 
 	/* On parcours les sections PROGBITS du premier fichier */
-	for(int i = 0; i < ehdr1->e_shnum; i++)
+	for(int i = 0; i < secTab1->nb_sections; i++)
 	{
 		if(secTab1->shdr[i]->sh_type != SHT_PROGBITS && secTab1->shdr[i]->sh_type != SHT_NOBITS)
 			continue;
 
 		/* Recherche si la section est présente dans le second fichier */
-		for(j = 0; (j < ehdr2->e_shnum) && strcmp(get_section_name(secTab1->shdr, secTab1->sectionNameTable, i), get_section_name(secTab2->shdr, secTab2->sectionNameTable, j)); j++);;
+		for(j = 0; (j < secTab2->nb_sections) && strcmp(get_section_name(secTab1->shdr, secTab1->sectionNameTable, i), get_section_name(secTab2->shdr, secTab2->sectionNameTable, j)); j++);;
 
 		if(offset == 0)
 			offset = secTab1->shdr[i]->sh_offset;
@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
 		fusion[ind] = malloc(sizeof(Fusion));
 		fusion[ind]->ptr_shdr1 = secTab1->shdr[i];
 
-		if(j != ehdr2->e_shnum)
+		if(j != secTab2->nb_sections)
 		{
 			/* La section est présente dans les deux fichiers */
 			fusion[ind]->size = secTab1->shdr[i]->sh_size + secTab2->shdr[j]->sh_size;
@@ -71,15 +71,15 @@ int main(int argc, char *argv[])
 	}
 
 	/* On recherche les sections PROGBITS du second fichier qui ne sont pas présentes dans le premier */
-	for(int i = 0; i < ehdr2->e_shnum; i++)
+	for(int i = 0; i < secTab2->nb_sections; i++)
 	{
 		if(secTab2->shdr[i]->sh_type != SHT_PROGBITS && secTab2->shdr[i]->sh_type != SHT_NOBITS)
 			continue;
 
 		/* Recherche si la section est absente du premier fichier */
-		for(j = 0; (j < ehdr1->e_shnum) && strcmp(get_section_name(secTab1->shdr, secTab1->sectionNameTable, j), get_section_name(secTab2->shdr, secTab2->sectionNameTable, i)); j++);
+		for(j = 0; (j < secTab1->nb_sections) && strcmp(get_section_name(secTab1->shdr, secTab1->sectionNameTable, j), get_section_name(secTab2->shdr, secTab2->sectionNameTable, i)); j++);
 
-		if(j == ehdr1->e_shnum)
+		if(j == secTab1->nb_sections)
 		{
 			nb_sections++;
 			ind = nb_sections - 1;
