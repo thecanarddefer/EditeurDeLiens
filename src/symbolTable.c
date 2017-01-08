@@ -11,6 +11,48 @@
 #include "symbolTable.h"
 
 
+/**************************** ÉTAPE 4 ****************************
+*    Utilitaires pour la récupération de la table des symboles
+*****************************************************************/
+
+int get_section_index(Section_Table *secTab, int shType, int isDyn) {
+	int i = 0,
+		idx = -1;
+	while (i < secTab->nb_sections) {
+		if(secTab->shdr[i]->sh_type == shType) {
+			if (isDyn && shType == SHT_STRTAB) {
+				if (!strcmp(".dynstr",get_section_name(secTab,i))) {
+					idx = i;
+				}
+			}
+			else {
+				if (shType == SHT_STRTAB){
+					if (!strcmp(".strtab",get_section_name(secTab,i))) {
+						idx = i;
+					}
+				}
+				else {
+					idx = i;
+				}
+			}
+		}
+		i++;
+	}
+	return idx;
+}
+
+char *get_symbol_name(Elf32_Sym **symtab, char *table, unsigned index) {
+    return &(table[symtab[index]->st_name]);
+}
+
+char *get_static_symbol_name(symbolTable *symTabFull, unsigned index) {
+    return get_symbol_name(symTabFull->symtab, symTabFull->symbolNameTable, index);
+}
+
+char *get_dynamic_symbol_name(symbolTable *symTabFull, unsigned index) {
+    return get_symbol_name(symTabFull->dynsym, symTabFull->dynSymbolNameTable, index);
+}
+
 Elf32_Sym **read_Elf32_Sym(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, int *nbSymbol, int sectionIndex) {
 
     Elf32_Sym **symtab;

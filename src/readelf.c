@@ -710,8 +710,8 @@ static inline Elf32_Addr get_symbol_value_generic(symbolTable *symTabFull, Elf32
 static inline char *get_symbol_name_generic(symbolTable *symTabFull, Elf32_Word info)
 {
 	return isDynamicRel(ELF32_R_TYPE(info)) ?
-		get_symbol_name(symTabFull->dynsym, symTabFull->dynSymbolNameTable, ELF32_R_SYM(info)) :
-		get_symbol_name(symTabFull->symtab, symTabFull->symbolNameTable,    ELF32_R_SYM(info));
+		get_dynamic_symbol_name(symTabFull, ELF32_R_SYM(info)) :
+		get_static_symbol_name(symTabFull,  ELF32_R_SYM(info));
 }
 
 void dump_relocation(Elf32_Ehdr *ehdr, Section_Table *secTab, symbolTable *symTabFull, Data_Rel *drel)

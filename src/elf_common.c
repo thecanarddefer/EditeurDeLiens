@@ -104,41 +104,6 @@ void destroy_sectionTable(Section_Table *secTab)
 }
 
 
-/**************************** ÉTAPE 4 ****************************
-*    Utilitaires pour la récupération de la table des symboles
-*****************************************************************/
-
-int get_section_index(Section_Table *secTab, int shType, int isDyn) {
-	int i = 0,
-		idx = -1;
-	while (i < secTab->nb_sections) {
-		if(secTab->shdr[i]->sh_type == shType) {
-			if (isDyn && shType == SHT_STRTAB) {
-				if (!strcmp(".dynstr",get_section_name(secTab,i))) {
-					idx = i;
-				}
-			}
-			else {
-				if (shType == SHT_STRTAB){
-					if (!strcmp(".strtab",get_section_name(secTab,i))) {
-						idx = i;
-					}
-				}
-				else {
-					idx = i;
-				}
-			}
-		}
-		i++;
-	}
-	return idx;
-}
-// TODO: Utiliser get_section_name_table pour get_symbole_name_table
-char *get_symbol_name(Elf32_Sym **symtab, char *table, unsigned index) {
-    return &(table[symtab[index]->st_name]);
-}
-
-
 /**************************** ÉTAPE 5 ****************************
 *               Affichage des tables de réimplantation
 *****************************************************************/

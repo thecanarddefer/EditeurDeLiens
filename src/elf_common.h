@@ -71,25 +71,6 @@ char *get_section_name(Section_Table *secTab, unsigned index);
  **/
 void destroy_sectionTable(Section_Table *secTab);
 
-/*
- * Retourne l'index d'une section selon son type.
- *
- * @param secTab:  une structure de type Section_Table initialisé.
- * @param shType: le type de la section recherchée.
- * @param isDyn: Si l'on cherche une section dynamique.
- */
-int get_section_index(Section_Table *secTab, int shType, int isDyn);
-
-/**
- * Retourne le nom d'un symbole donné (par index)
- *
- * @param symtab:  un tableau de structure Elf32_Sym initialisé.
- * @param table: une chaîne de caractères initialisée contenant la table des noms de section.
- * @param index: le numéro d'une section.
- * @retourne une chaîne de caractères correspondant au nom du symbole.
- **/
-char *get_symbol_name(Elf32_Sym **symtab, char *table, unsigned index);
-
 /**
  * Lis les tables de réimplantations et stocke les informations dans une structure
  *

@@ -127,7 +127,7 @@ int main(int argc, char *argv[])
 
 	for(int i = 1; i < st2->nbSymbol; i++)
 	{
-		char *buff = get_symbol_name(st2->symtab, st2->symbolNameTable, i);
+		char *buff = get_static_symbol_name(st2, i);
 
 		if((strlen(buff) > 0) && (strstr(st_out->symbolNameTable, buff) != NULL))
 		{
