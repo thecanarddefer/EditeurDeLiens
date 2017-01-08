@@ -343,6 +343,9 @@ static char *section_type_to_string(Elf32_Word type)
 		{ SHT_GNU_verdef,     "VERDEF"         },
 		{ SHT_GNU_verneed,    "VERNEED"        },
 		{ SHT_GNU_versym,     "VERSYM"         },
+		{ SHT_ARM_EXIDX,      "ARM_EXIDX"      },
+		{ SHT_ARM_PREEMPTMAP, "ARM_PREEMPTMAP" },
+		{ SHT_ARM_ATTRIBUTES, "ARM_ATTRIBUTES" },
 		{ SHT_HIUSER,         "UNKNOWN"        }
 	};
 
