@@ -1,5 +1,5 @@
-#ifndef _LD_H_
-#define _LD_H_
+#ifndef _FUSION_H_
+#define _FUSION_H_
 
 #include <elf.h>
 #include "symbolTable.h"

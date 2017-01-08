@@ -7,7 +7,7 @@
 #include <fcntl.h>
 #include "elf_common.h"
 #include "symbolTable.h"
-#include "ld.h"
+#include "fusion.h"
 
 
 int main(int argc, char *argv[])
