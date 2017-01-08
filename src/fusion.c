@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
 			continue;
 
 		/* Recherche si la section est présente dans le second fichier */
-		for(j = 0; (j < secTab2->nb_sections) && strcmp(get_section_name(secTab1->shdr, secTab1->sectionNameTable, i), get_section_name(secTab2->shdr, secTab2->sectionNameTable, j)); j++);;
+		for(j = 0; (j < secTab2->nb_sections) && strcmp(get_section_name(secTab1, i), get_section_name(secTab2, j)); j++);
 
 		if(offset == 0)
 			offset = secTab1->shdr[i]->sh_offset;
@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
 		}
 
 		fusion[ind]->offset = offset;
-		strcpy(fusion[ind]->section, get_section_name(secTab1->shdr, secTab1->sectionNameTable, i));
+		strcpy(fusion[ind]->section, get_section_name(secTab1, i));
 		offset = fusion[ind]->size;
 	}
 
@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
 			continue;
 
 		/* Recherche si la section est absente du premier fichier */
-		for(j = 0; (j < secTab1->nb_sections) && strcmp(get_section_name(secTab1->shdr, secTab1->sectionNameTable, j), get_section_name(secTab2->shdr, secTab2->sectionNameTable, i)); j++);
+		for(j = 0; (j < secTab1->nb_sections) && strcmp(get_section_name(secTab1, j), get_section_name(secTab2, i)); j++);
 
 		if(j == secTab1->nb_sections)
 		{
@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
 			fusion[ind]->ptr_shdr2 = secTab2->shdr[i];
 			fusion[ind]->size = secTab2->shdr[i]->sh_size;
 			fusion[ind]->offset = offset;
-			strcpy(fusion[ind]->section, get_section_name(secTab2->shdr, secTab2->sectionNameTable, i));
+			strcpy(fusion[ind]->section, get_section_name(secTab2, i));
 			offset += fusion[ind]->size;
 		}
 	}
@@ -166,8 +166,8 @@ int main(int argc, char *argv[])
 			j = secTab1->nb_sections;
 			if((ELF32_ST_BIND(st2->symtab[i]->st_info) == STB_LOCAL) && st2->symtab[i]->st_shndx < secTab2->nb_sections)
 			{
-				for(j = 0; (j < secTab1->nb_sections) && strcmp(get_section_name(secTab1->shdr, secTab1->sectionNameTable, j),
-					get_section_name(secTab2->shdr, secTab2->sectionNameTable, st2->symtab[i]->st_shndx)); j++);
+				for(j = 0; (j < secTab1->nb_sections) && strcmp(get_section_name(secTab1, j),
+					get_section_name(secTab2, st2->symtab[i]->st_shndx)); j++);
 			}
 
 			if(j == secTab1->nb_sections)
@@ -226,7 +226,7 @@ void update_section_index_in_symbol(Fusion **fusion, unsigned nb_sections, Secti
 	if(symbol->st_shndx >= secTab->nb_sections)
 		return;
 
-	for(i = 1; (i < nb_sections) && strcmp(fusion[i]->section, get_section_name(secTab->shdr, secTab->sectionNameTable, symbol->st_shndx)); i++);
+	for(i = 1; (i < nb_sections) && strcmp(fusion[i]->section, get_section_name(secTab, symbol->st_shndx)); i++);
 	if(i < nb_sections)
 		symbol->st_shndx = i;
 }

@@ -53,7 +53,7 @@ Elf32_Sym **read_Elf32_Sym(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, int *nbS
  *
  * @retourne: un pointeur vers une structure symbolTable.
  */
-symbolTable *read_symbolTable(int fd, Elf32_Ehdr *ehdr, Section_Table *sectab);
+symbolTable *read_symbolTable(int fd, Elf32_Ehdr *ehdr, Section_Table *secTab);
 
 /*
  * Affiche une table de symbole.

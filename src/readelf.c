@@ -141,7 +141,7 @@ static int parse_file(const char *filename, Arguments **args)
 	ehdr       = read_elf_header(fd);
 	secTab     = read_sectionTable(fd, ehdr);
 	symTabFull = read_symbolTable(fd, ehdr, secTab);
-	drel       = read_relocationTables(fd, ehdr, secTab->shdr);
+	drel       = read_relocationTables(fd, secTab);
 
 	for(int arg = 0; args[arg]->display != DSP_NONE; arg++)
 	{
@@ -389,7 +389,7 @@ void dump_section_header(Section_Table *secTab, Elf32_Off offset)
 
 	for(int i = 0; i < secTab->nb_sections; i++)
 		printf("[%2i] %-18s %-14s %08x %06x %06x %02x %2s %2i %2i %2i\n", i,
-			get_section_name(secTab->shdr, secTab->sectionNameTable, i),
+			get_section_name(secTab, i),
 			section_type_to_string(secTab->shdr[i]->sh_type),
 			secTab->shdr[i]->sh_addr,
 			secTab->shdr[i]->sh_offset,
@@ -429,9 +429,9 @@ int is_valid_section(Section_Table *secTab, char *name, unsigned *index)
 	if(name[0] != '\0')
 	{
 
-		for(i = 0; (i < secTab->nb_sections) && strcmp(name, get_section_name(secTab->shdr, secTab->sectionNameTable, i)); i++);
+		for(i = 0; (i < secTab->nb_sections) && strcmp(name, get_section_name(secTab, i)); i++);
 
-		if((i == secTab->nb_sections) || strcmp(name, get_section_name(secTab->shdr, secTab->sectionNameTable, i)))
+		if((i == secTab->nb_sections) || strcmp(name, get_section_name(secTab, i)))
 		{
 			fprintf(stderr, "La section '%s' n'existe pas.\n",name);
 			return 0;
@@ -448,7 +448,7 @@ int is_valid_section(Section_Table *secTab, char *name, unsigned *index)
 #define BYTES_PER_BLOCK BYTES_COUNT / BLOCKS_COUNT
 void dump_section (int fd, Elf32_Ehdr *ehdr, Section_Table *secTab, unsigned index){
 
-	printf("\nAffichage hexadécimal de la section « %s » :\n\n", get_section_name(secTab->shdr, secTab->sectionNameTable, index));
+	printf("\nAffichage hexadécimal de la section « %s » :\n\n", get_section_name(secTab, index));
 
 	Elf32_Shdr *shdrToDisplay = secTab->shdr[index];
 
@@ -720,7 +720,7 @@ void dump_relocation(Elf32_Ehdr *ehdr, Section_Table *secTab, symbolTable *symTa
 	for(int i = 0; i < drel->nb_rel; i++)
 	{
 		printf("\nSection de relocalisation '%s' à l'adresse de décalage %#x contient %u entrées :\n",
-			get_section_name(secTab->shdr, secTab->sectionNameTable, drel->i_rel[i]),
+			get_section_name(secTab, drel->i_rel[i]),
 			drel->a_rel[i],
 			drel->e_rel[i]);
 		printf("%-8s  %-8s  %-23s  %-8s  %s\n", "Décalage", "Info", "Type", "Val.-sym", "Noms-symboles");
@@ -739,7 +739,7 @@ void dump_relocation(Elf32_Ehdr *ehdr, Section_Table *secTab, symbolTable *symTa
 	for(int i = 0; i < drel->nb_rela; i++)
 	{
 		printf("\nSection de relocalisation '%s' à l'adresse de décalage %#x contient %u entrées :\n",
-			get_section_name(secTab->shdr, secTab->sectionNameTable, drel->i_rela[i]),
+			get_section_name(secTab, drel->i_rela[i]),
 			drel->a_rela[i],
 			drel->e_rela[i]);
 		printf("%-8s  %-8s  %-23s  %-8s  %s\n", "Décalage", "Info", "Type", "Val.-sym", "Noms-symboles+ Addenda");

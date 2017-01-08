@@ -89,9 +89,9 @@ char *get_name_table(int fd, int idxSection, Elf32_Shdr **shdr)
 	return table;
 }
 
-char *get_section_name(Elf32_Shdr **shdr, char *table, unsigned index)
+char *get_section_name(Section_Table *secTab, unsigned index)
 {
-	return &(table[shdr[index]->sh_name]);
+	return &(secTab->sectionNameTable[secTab->shdr[index]->sh_name]);
 }
 
 void destroy_sectionTable(Section_Table *secTab)
@@ -108,19 +108,19 @@ void destroy_sectionTable(Section_Table *secTab)
 *    Utilitaires pour la récupération de la table des symboles
 *****************************************************************/
 
-int get_section_index(int nbSections, Elf32_Shdr **shdr, int shType, int isDyn, char *sectionNameTable) {
+int get_section_index(Section_Table *secTab, int shType, int isDyn) {
 	int i = 0,
 		idx = -1;
-	while (i < nbSections) {
-		if(shdr[i]->sh_type == shType) {
+	while (i < secTab->nb_sections) {
+		if(secTab->shdr[i]->sh_type == shType) {
 			if (isDyn && shType == SHT_STRTAB) {
-				if (!strcmp(".dynstr",get_section_name(shdr,sectionNameTable,i))) {
+				if (!strcmp(".dynstr",get_section_name(secTab,i))) {
 					idx = i;
 				}
 			}
 			else {
 				if (shType == SHT_STRTAB){
-					if (!strcmp(".strtab",get_section_name(shdr,sectionNameTable,i))) {
+					if (!strcmp(".strtab",get_section_name(secTab,i))) {
 						idx = i;
 					}
 				}
@@ -143,7 +143,7 @@ char *get_symbol_name(Elf32_Sym **symtab, char *table, unsigned index) {
 *               Affichage des tables de réimplantation
 *****************************************************************/
 
-Data_Rel *read_relocationTables(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr)
+Data_Rel *read_relocationTables(int fd, Section_Table *secTab)
 {
 	unsigned ind, size;
 	Data_Rel *drel = malloc(sizeof(Data_Rel));
@@ -160,14 +160,14 @@ Data_Rel *read_relocationTables(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr)
 	drel->rel     = NULL;
 	drel->rela    = NULL;
 
-	for(int i = 0; i < ehdr->e_shnum; i++)
+	for(int i = 0; i < secTab->nb_sections; i++)
 	{
-		lseek(fd, shdr[i]->sh_offset, SEEK_SET);
-		if(shdr[i]->sh_type == SHT_REL)
+		lseek(fd, secTab->shdr[i]->sh_offset, SEEK_SET);
+		if(secTab->shdr[i]->sh_type == SHT_REL)
 		{
 			drel->nb_rel++;
 			ind  = drel->nb_rel - 1;
-			size = shdr[i]->sh_size / sizeof(Elf32_Rel);
+			size = secTab->shdr[i]->sh_size / sizeof(Elf32_Rel);
 
 			/* Allocations */
 			drel->e_rel    = realloc(drel->e_rel, sizeof(unsigned)   * drel->nb_rel);
@@ -179,7 +179,7 @@ Data_Rel *read_relocationTables(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr)
 				drel->rel[ind][j] = malloc(sizeof(Elf32_Rel));
 
 			drel->e_rel[ind] = size;
-			drel->a_rel[ind] = shdr[i]->sh_offset;
+			drel->a_rel[ind] = secTab->shdr[i]->sh_offset;
 			drel->i_rel[ind] = i;
 
 			/* Récupération de la table des réimplantations */
@@ -189,11 +189,11 @@ Data_Rel *read_relocationTables(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr)
 				read(fd, &drel->rel[ind][j]->r_info,   sizeof(drel->rel[ind][j]->r_info));
 			}
 		}
-		else if(shdr[i]->sh_type == SHT_RELA)
+		else if(secTab->shdr[i]->sh_type == SHT_RELA)
 		{
 			drel->nb_rela++;
 			ind  = drel->nb_rela - 1;
-			size = shdr[i]->sh_size / sizeof(Elf32_Rela);
+			size = secTab->shdr[i]->sh_size / sizeof(Elf32_Rela);
 
 			/* Allocations */
 			drel->e_rela    = realloc(drel->e_rela, sizeof(unsigned)    * drel->nb_rela);
@@ -205,7 +205,7 @@ Data_Rel *read_relocationTables(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr)
 				drel->rela[ind][j] = malloc(sizeof(Elf32_Rela));
 
 			drel->e_rela[ind] = size;
-			drel->a_rela[ind] = shdr[i]->sh_offset;
+			drel->a_rela[ind] = secTab->shdr[i]->sh_offset;
 			drel->i_rela[ind] = i;
 
 			/* Récupération de la table des réimplantations */

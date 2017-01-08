@@ -58,12 +58,11 @@ char *get_name_table(int fd, int idxSection, Elf32_Shdr **shdr);
 /**
  * Retourne le nom d'une section donnée
  *
- * @param shdr:  un tableau de structures de type Elf32_Shdr initialisé
- * @param table: une chaîne de caractères initialisée contenant la table des noms de section
+ * @param secTab: une structure de type Section_Table initialisée
  * @param index: le numéro d'une section
  * @retourne une chaîne de caractères correspondant au nom de la section
  **/
-char *get_section_name(Elf32_Shdr **shdr, char *table, unsigned index);
+char *get_section_name(Section_Table *secTab, unsigned index);
 
 /**
  * Libère la mémoire occupée par une structure Section_Table
@@ -75,13 +74,11 @@ void destroy_sectionTable(Section_Table *secTab);
 /*
  * Retourne l'index d'une section selon son type.
  *
- * @param nbSections: le nombre de sections
- * @param shdr:  un tableau de structures de type Elf32_Shdr initialisé.
+ * @param secTab:  une structure de type Section_Table initialisé.
  * @param shType: le type de la section recherchée.
  * @param isDyn: Si l'on cherche une section dynamique.
- * @param sectionNameTable: une chaîne de caractères initialisée contenant la table des noms de section.
  */
-int get_section_index(int nbSections, Elf32_Shdr **shdr, int shType, int isDyn, char *sectionNameTable);
+int get_section_index(Section_Table *secTab, int shType, int isDyn);
 
 /**
  * Retourne le nom d'un symbole donné (par index)
@@ -96,12 +93,11 @@ char *get_symbol_name(Elf32_Sym **symtab, char *table, unsigned index);
 /**
  * Lis les tables de réimplantations et stocke les informations dans une structure
  *
- * @param fd:   un descripteur de fichier (ELF32)
- * @param ehdr: une structure de type Elf32_Ehdr initialisée
- * @param shdr: un tableau de structures de type Elf32_Shdr initialisé
+ * @param fd:     un descripteur de fichier (ELF32)
+ * @param secTab: une structure de type Section_Table initialisée
  * @retourne un pointeur sur une struture de type Data_Rel
  **/
-Data_Rel *read_relocationTables(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr);
+Data_Rel *read_relocationTables(int fd, Section_Table *secTab);
 
 /**
  * Libère la mémoire occupée par une structure Data_Rel

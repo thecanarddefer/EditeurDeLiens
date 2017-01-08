@@ -68,7 +68,7 @@ void dump_symtab(int nbSymbol, Elf32_Sym **symtab, char *symbolNameTable, char *
     }
 }
 
-symbolTable *read_symbolTable(int fd, Elf32_Ehdr *ehdr, Section_Table *sectab) {
+symbolTable *read_symbolTable(int fd, Elf32_Ehdr *ehdr, Section_Table *secTab) {
     int tmpSymtabIndex = -1,
         tmpStrtabIndex = -1;
 
@@ -86,24 +86,24 @@ symbolTable *read_symbolTable(int fd, Elf32_Ehdr *ehdr, Section_Table *sectab) {
     symTabToRead->dynSymbolNameTable = NULL;
 
     // SHT_DYNSYM
-    tmpSymtabIndex = get_section_index(ehdr->e_shnum,sectab->shdr, SHT_DYNSYM, 1, sectab->sectionNameTable);
+    tmpSymtabIndex = get_section_index(secTab, SHT_DYNSYM, 1);
     if (tmpSymtabIndex != -1) {
-        symTabToRead->dynsym = read_Elf32_Sym(fd, ehdr, sectab->shdr, &symTabToRead->nbDynSymbol, tmpSymtabIndex);
+        symTabToRead->dynsym = read_Elf32_Sym(fd, ehdr, secTab->shdr, &symTabToRead->nbDynSymbol, tmpSymtabIndex);
         if (symTabToRead->dynsym != NULL) {
-            tmpStrtabIndex = get_section_index(ehdr->e_shnum,sectab->shdr, SHT_STRTAB, 1, sectab->sectionNameTable); // DT_SYMTAB
+            tmpStrtabIndex = get_section_index(secTab, SHT_STRTAB, 1); // DT_SYMTAB
 	    symTabToRead->dynsymIndex = tmpStrtabIndex;
-            symTabToRead->dynSymbolNameTable = get_name_table(fd,tmpStrtabIndex,sectab->shdr);
-            symTabToRead->dynTableName = get_section_name(sectab->shdr,sectab->sectionNameTable,tmpSymtabIndex);
+            symTabToRead->dynSymbolNameTable = get_name_table(fd,tmpStrtabIndex,secTab->shdr);
+            symTabToRead->dynTableName = get_section_name(secTab,tmpSymtabIndex);
         }
     }
-    tmpSymtabIndex = get_section_index(ehdr->e_shnum,sectab->shdr, SHT_SYMTAB, 0, sectab->sectionNameTable);
+    tmpSymtabIndex = get_section_index(secTab, SHT_SYMTAB, 0);
     if (tmpSymtabIndex != -1) {
-        symTabToRead->symtab = read_Elf32_Sym(fd, ehdr, sectab->shdr, &symTabToRead->nbSymbol, tmpSymtabIndex);
+        symTabToRead->symtab = read_Elf32_Sym(fd, ehdr, secTab->shdr, &symTabToRead->nbSymbol, tmpSymtabIndex);
         if (symTabToRead->symtab != NULL) {
-            tmpStrtabIndex = get_section_index(ehdr->e_shnum,sectab->shdr, SHT_STRTAB, 0, sectab->sectionNameTable);
+            tmpStrtabIndex = get_section_index(secTab, SHT_STRTAB, 0);
 	    symTabToRead->symtabIndex = tmpStrtabIndex;
-            symTabToRead->symbolNameTable = get_name_table(fd,tmpStrtabIndex,sectab->shdr);
-            symTabToRead->symTableName = get_section_name(sectab->shdr,sectab->sectionNameTable,tmpSymtabIndex);
+            symTabToRead->symbolNameTable = get_name_table(fd,tmpStrtabIndex,secTab->shdr);
+            symTabToRead->symTableName = get_section_name(secTab,tmpSymtabIndex);
         }
     }
     return symTabToRead;
