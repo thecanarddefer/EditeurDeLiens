@@ -40,14 +40,13 @@ static void print_help(char *prgname)
 		printf("  -%c, --%-20s %s\n", opts[i].short_opt, opts[i].long_opt, opts[i].description);
 }
 
-#define INCREASE_ARGUMENTS(a) (a) = realloc((a), sizeof(Arguments*) * (opt + 1)); (a)[opt] = malloc(sizeof(Arguments))
-static int parse_options(int argc, char *argv[], Arguments ***args)
+static int parse_options(int argc, char *argv[], Arguments *args)
 {
-	int c = 0;
-	int opt = 0;
-	int first_file = 1;
+	int c = 0, first_file = 1;
 	char shortopts[64] = "";
 	struct option longopts[sizeof(opts)/sizeof(opts[0]) - 1];
+	args->display     = 0;
+	args->nb_hexdumps = 0;
 
 	for(int i = 0; opts[i].long_opt != NULL; i++)
 	{
@@ -65,47 +64,35 @@ static int parse_options(int argc, char *argv[], Arguments ***args)
 		switch(c)
 		{
 			case 'h':
-				INCREASE_ARGUMENTS(*args);
-				(*args)[opt++]->display = DSP_FILE_HEADER;
+				args->display |= DSP_FILE_HEADER;
 				break;
 			case 'S':
-				INCREASE_ARGUMENTS(*args);
-				(*args)[opt++]->display = DSP_SECTION_HEADERS;
+				args->display |= DSP_SECTION_HEADERS;
 				break;
 			case 'x':
-				INCREASE_ARGUMENTS(*args);
-				(*args)[opt]->display = DSP_HEX_DUMP;
+				args->display |= DSP_HEX_DUMP;
 				if(isdigit(optarg[0]))
 				{
-					(*args)[opt]->section_ind = atoi(optarg);
-					(*args)[opt]->section_str[0] = '\0';
+					args->section_ind[args->nb_hexdumps]    = atoi(optarg);
+					args->section_str[args->nb_hexdumps][0] = '\0';
 				}
 				else
 				{
-					(*args)[opt]->section_ind = 0;
-					strcpy((*args)[opt]->section_str, optarg);
+					args->section_ind[args->nb_hexdumps] = 0;
+					strcpy(args->section_str[args->nb_hexdumps], optarg);
 				}
-				opt++;
+				args->nb_hexdumps++;
 				if(argv[first_file][2] == '\0')
 					first_file++;
 				break;
 			case 's':
-				INCREASE_ARGUMENTS(*args);
-				(*args)[opt++]->display = DSP_SYMS;
+				args->display |= DSP_SYMS;
 				break;
 			case 'r':
-				INCREASE_ARGUMENTS(*args);
-				(*args)[opt++]->display = DSP_RELOCS;
+				args->display |= DSP_RELOCS;
 				break;
 			case 'A':
-				INCREASE_ARGUMENTS(*args);
-				(*args)[opt++]->display = DSP_FILE_HEADER;
-				INCREASE_ARGUMENTS(*args);
-				(*args)[opt++]->display = DSP_SECTION_HEADERS;
-				INCREASE_ARGUMENTS(*args);
-				(*args)[opt++]->display = DSP_SYMS;
-				INCREASE_ARGUMENTS(*args);
-				(*args)[opt++]->display = DSP_RELOCS;
+				args->display |= DSP_FILE_HEADER | DSP_SECTION_HEADERS | DSP_SYMS | DSP_RELOCS;
 				break;
 			case 'H':
 				print_help(argv[0]);
@@ -117,13 +104,10 @@ static int parse_options(int argc, char *argv[], Arguments ***args)
 		first_file++;
 	}
 
-	INCREASE_ARGUMENTS(*args);
-	(*args)[opt]->display = DSP_NONE;
-
 	return first_file;
 }
 
-static int parse_file(const char *filename, Arguments **args)
+static int parse_file(const char *filename, Arguments *args)
 {
 	int fd;
 	Elf32_Ehdr *ehdr;
@@ -143,30 +127,18 @@ static int parse_file(const char *filename, Arguments **args)
 	symTabFull = read_symbolTable(fd, ehdr, secTab);
 	drel       = read_relocationTables(fd, secTab);
 
-	for(int arg = 0; args[arg]->display != DSP_NONE; arg++)
-	{
-		switch(args[arg]->display)
-		{
-			case DSP_FILE_HEADER:
-				dump_header(ehdr);
-				break;
-			case DSP_SECTION_HEADERS:
-				dump_section_header(secTab, ehdr->e_shoff);
-				break;
-			case DSP_HEX_DUMP:
-				if(is_valid_section(secTab, args[arg]->section_str, &args[arg]->section_ind))
-					dump_section(fd, ehdr, secTab, args[arg]->section_ind);
-				break;
-			case DSP_SYMS:
-				displ_symbolTable(symTabFull);
-				break;
-			case DSP_RELOCS:
-				dump_relocation(ehdr, secTab, symTabFull, drel);
-				break;
-			default:
-				break;
-		}
-	}
+	if(args->display & DSP_FILE_HEADER)
+		dump_header(ehdr);
+	if(args->display & DSP_SECTION_HEADERS)
+		dump_section_header(secTab, ehdr->e_shoff);
+	if(args->display & DSP_HEX_DUMP)
+		for(int h = 0; h < args->nb_hexdumps; h++)
+			if(is_valid_section(secTab, args->section_str[h], &args->section_ind[h]))
+				dump_section(fd, ehdr, secTab, args->section_ind[h]);
+	if(args->display & DSP_SYMS)
+		displ_symbolTable(symTabFull);
+	if(args->display & DSP_RELOCS)
+		dump_relocation(ehdr, secTab, symTabFull, drel);
 
 	close(fd);
 	destroy_elf_header(ehdr);
@@ -179,9 +151,8 @@ static int parse_file(const char *filename, Arguments **args)
 
 int main(int argc, char *argv[])
 {
-	int first_filename, arg;
-	int ret = 0;
-	Arguments **args = NULL;
+	int first_filename, ret = 0;
+	Arguments args;
 
 	if(argc <= 2)
 	{
@@ -194,14 +165,9 @@ int main(int argc, char *argv[])
 	{
 		if(first_filename < argc - 1)
 			printf("Fichier \x1b[1m%s\x1b[0m :\n\n", argv[i]);
-		ret += parse_file(argv[i], args);
+		ret += parse_file(argv[i], &args);
 		printf("\n\n");
 	}
-
-	for(arg = 0; args[arg]->display != DSP_NONE; arg++)
-		free(args[arg]);
-	free(args[arg]);
-	free(args);
 
 	return ret;
 }
