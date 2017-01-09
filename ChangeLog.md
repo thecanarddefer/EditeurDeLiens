@@ -24,3 +24,7 @@
 * Fusion et renumérotation des sections PROGBITS (étape 6)
 * Diverses documentations, corrections, améliorations et nettoyages
 * Fusion de la table des symboles statique
+
+## Lundi 9 janvier 2017
+* Nombreuses améliorations et simplifications
+* Fusion, renumérotation et correction des symboles (étape 7)
