@@ -94,6 +94,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	//TODO: Calculer l'indice des nouvelles sections (toutes celles qui ne sont pas des PROGBITS)
+
 	/* On crée le fichier de sortie qui contient les sections PROGBITS fusionnées */
 	lseek(fd_out, ehdr1->e_ehsize, SEEK_SET);
 	for(int i = 1; i < nb_sections; i++)
@@ -119,22 +121,17 @@ int main(int argc, char *argv[])
 	for(int i = 1; i < st_out->nbSymbol; i++)
 		update_section_index_in_symbol(fusion, nb_sections, secTab1, st_out->symtab[i]);
 
-	/* On remplace les caractères '\0' par des espaces afin de pouvoir utiliser des fonctions de manipulation de chaines */
-	for(int i = 0; i < symbsize; i++)
-		if(st_out->symbolNameTable[i] == '\0')
-			st_out->symbolNameTable[i] = ' ';
-	st_out->symbolNameTable[symbsize] = '\0';
-
 	for(int i = 1; i < st2->nbSymbol; i++)
 	{
-		char *buff = get_static_symbol_name(st2, i);
 
-		if((strlen(buff) > 0) && (strstr(st_out->symbolNameTable, buff) != NULL))
+		char *buff = get_static_symbol_name(st2, i);
+		const int shndx = find_index_in_name_table(st_out->symbolNameTable, buff, symbsize);
+
+		if(shndx > 0)
 		{
 			/* On calcule l'indice correspondant au symbole déjà présent en se basant sur son nom */
-			for(j = 0; (j < st_out->nbSymbol) && strcmp(get_symbol_name(st_out->symtab, st1->symbolNameTable, j), buff); j++);
-			ind = (j < st_out->nbSymbol) ? j : nb_sections - 1;
-
+			for(j = 0; (j < st_out->nbSymbol) && strcmp(get_symbol_name(st_out->symtab, st_out->symbolNameTable, j), buff); j++);
+			ind = j;
 			const int is_global_st_out = (ELF32_ST_BIND(st_out->symtab[ind]->st_info) == STB_GLOBAL);
 			const int is_global_st2    = (ELF32_ST_BIND(st2->symtab[i]->st_info)      == STB_GLOBAL);
 
@@ -147,18 +144,26 @@ int main(int argc, char *argv[])
 			}
 			else if(is_global_st_out && is_global_st2 && (st_out->symtab[ind]->st_shndx == SHN_UNDEF) && (st2->symtab[i]->st_shndx != SHN_UNDEF))
 			{
-				/* On remplace le symbole global indéfini par le défini, sans toucher à st_name et st_shndx */
+				/* On remplace le symbole global indéfini par le défini, sans toucher à st_name */
 				st_out->symtab[ind]->st_value = st2->symtab[i]->st_value;
 				st_out->symtab[ind]->st_size  = st2->symtab[i]->st_size;
 				st_out->symtab[ind]->st_info  = st2->symtab[i]->st_info;
 				st_out->symtab[ind]->st_other = st2->symtab[i]->st_other;
+				st_out->symtab[ind]->st_shndx = st2->symtab[i]->st_shndx;
+				update_section_index_in_symbol(fusion, nb_sections, secTab2, st_out->symtab[ind]);
 			}
-			else
+			else if(!is_global_st_out && !is_global_st2)
 			{
 				/* Un autre symbole local a le même nom, on ajoute le symbole à la table des symboles uniquement */
 				ind = add_symbol_in_table(st_out, st2->symtab[i]);
-				st_out->symtab[ind]->st_name = strstr(st_out->symbolNameTable, buff) - st_out->symbolNameTable;
+				st_out->symtab[ind]->st_name = shndx;
 				update_section_index_in_symbol(fusion, nb_sections, secTab2, st_out->symtab[ind]);
+
+				/* On met à jour la valeur du nouveau symbole */
+				for(j = 0; (j < secTab1->nb_sections) && strcmp(get_section_name(secTab1, j),
+					get_section_name(secTab2, st2->symtab[i]->st_shndx)); j++);
+				if(j < secTab1->nb_sections)
+					st_out->symtab[ind]->st_value += secTab1->shdr[j]->sh_size;
 			}
 		}
 		else
@@ -166,6 +171,7 @@ int main(int argc, char *argv[])
 			j = secTab1->nb_sections;
 			if((ELF32_ST_BIND(st2->symtab[i]->st_info) == STB_LOCAL) && st2->symtab[i]->st_shndx < secTab2->nb_sections)
 			{
+				/* On cherche s'il s'agit d'un symbole de section et qu'il n'est pas déjà défini */
 				for(j = 0; (j < secTab1->nb_sections) && strcmp(get_section_name(secTab1, j),
 					get_section_name(secTab2, st2->symtab[i]->st_shndx)); j++);
 			}
@@ -174,17 +180,18 @@ int main(int argc, char *argv[])
 			{
 				/* On ajoute le symbole à la nouvelle table */
 				ind = add_symbol_in_table(st_out, st2->symtab[i]);
-				st_out->symtab[ind]->st_name = symbsize;
-				add_symbol_in_name_table(&st_out->symbolNameTable, buff, &symbsize);
 				update_section_index_in_symbol(fusion, nb_sections, secTab2, st_out->symtab[ind]);
+
+				if(strlen(buff) > 0)
+				{
+					st_out->symtab[ind]->st_name = symbsize;
+					st_out->symbolNameTable = realloc(st_out->symbolNameTable, symbsize + strlen(buff) + 1);
+					strcat(&(st_out->symbolNameTable[symbsize]), buff);
+					symbsize += strlen(buff) + 1;
+				}
 			}
 		}
 	}
-
-	/* On remet les caractères '\0' à la place des espaces */
-	for(int i = 0; i < symbsize; i++)
-		if(st_out->symbolNameTable[i] == ' ')
-			st_out->symbolNameTable[i] = '\0';
 
 	sort_new_symbol_table(st_out);
 	dump_symtab(st_out->nbSymbol, st_out->symtab, st_out->symbolNameTable, st_out->symTableName); // Pour debug
@@ -223,12 +230,23 @@ int write_progbits_in_file(int fd_in, int fd_out, Elf32_Word size, Elf32_Off off
 void update_section_index_in_symbol(Fusion **fusion, unsigned nb_sections, Section_Table *secTab, Elf32_Sym *symbol)
 {
 	int i;
+
 	if(symbol->st_shndx >= secTab->nb_sections)
 		return;
-
 	for(i = 1; (i < nb_sections) && strcmp(fusion[i]->section, get_section_name(secTab, symbol->st_shndx)); i++);
-	if(i < nb_sections)
-		symbol->st_shndx = i;
+
+	symbol->st_shndx = (i < nb_sections) ? i : -2;
+}
+
+int find_index_in_name_table(char *haystack, char *needle, Elf32_Word size)
+{
+	int i;
+
+	if(strlen(needle) <= 0)
+		return -1;
+	for(i = 0; (i < size) && strcmp(&(haystack[i]), needle); i += strlen(&(haystack[i])) + 1);
+
+	return (i < size) ? i : -1;
 }
 
 int add_symbol_in_table(symbolTable *st, Elf32_Sym *symtab)
@@ -241,14 +259,6 @@ int add_symbol_in_table(symbolTable *st, Elf32_Sym *symtab)
 	memcpy(st->symtab[ind], symtab, sizeof(Elf32_Sym));
 
 	return ind;
-}
-
-void add_symbol_in_name_table(char **symbolNameTable, char *symbol, Elf32_Word *size)
-{
-	*size += strlen(symbol) + 1;
-	*symbolNameTable = realloc(*symbolNameTable, *size);
-	strcat(*symbolNameTable, symbol);
-	(*symbolNameTable)[*size - 1] = ' ';
 }
 
 static inline void swap_symbols(Elf32_Sym *sym1, Elf32_Sym *sym2)

@@ -36,6 +36,14 @@ int write_progbits_in_file(int fd_in, int fd_out, Elf32_Word size, Elf32_Off off
  **/
 void update_section_index_in_symbol(Fusion **fusion, unsigned nb_sections, Section_Table *secTab, Elf32_Sym *symbol);
 
+/**
+ * Calcule l'indice d'une sous-chaîne dans une chaîne
+ *
+ * @param haystack: la chaîne dans laquelle rechercher la sous-chaîne
+ * @param needle:   la sous-chaîne
+ * @param size:     la taille de haystack
+ **/
+int find_index_in_name_table(char *haystack, char *needle, Elf32_Word size);
 
 /**
  * Ajoute un symbole à la table des symboles
@@ -45,16 +53,6 @@ void update_section_index_in_symbol(Fusion **fusion, unsigned nb_sections, Secti
  * @retourne l'indice où le nouveau symbole a été ajouté
  **/
 int add_symbol_in_table(symbolTable *st, Elf32_Sym *symtab);
-
-/**
- * Ajoute un symbole à la table des noms de symboles
- *
- * @param symbolNameTable: un pointeur vers une table des noms des symboles
- * @param symbol:          une chaîne de caractères contenant le nom du symbole
- * @param size:            un pointeur vers la taille initiale de la table des noms des symboles
- * POST-CONDITION:         size est mis à jour (size + taille de symbol + 1)
- **/
-void add_symbol_in_name_table(char **symbolNameTable, char *symbol, Elf32_Word *size);
 
 /**
  * Trie une table des symboles
