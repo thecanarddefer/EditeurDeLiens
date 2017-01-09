@@ -27,9 +27,10 @@ typedef struct
  *
  * @param secTab:  une structure de type Section_Table initialisé.
  * @param shType: le type de la section recherchée.
- * @param isDyn: Si l'on cherche une section dynamique.
+ *  
+ * @retourne l'index (int) de la section de type shType
  */
-int get_section_index(Section_Table *secTab, int shType, int isDyn);
+int get_section_index(Section_Table *secTab, int shType);
 
 /**
  * Retourne le nom d'un symbole donné (par index)
