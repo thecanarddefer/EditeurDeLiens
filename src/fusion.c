@@ -28,9 +28,9 @@ int main(int argc, char *argv[])
 	Elf32_Ehdr *ehdr2      = read_elf_header(fd2);
 	Section_Table *secTab1 = read_sectionTable(fd1, ehdr1);
 	Section_Table *secTab2 = read_sectionTable(fd2, ehdr2);
-	symbolTable *st1       = read_symbolTable(fd1, ehdr1, secTab1);
-	symbolTable *st2       = read_symbolTable(fd2, ehdr2, secTab2);
-	symbolTable *st_out    = read_symbolTable(fd1, ehdr1, secTab1); // En réalité, on duplique la table des symboles du premier fichier
+	symbolTable *st1       = read_symbolTable(fd1, secTab1);
+	symbolTable *st2       = read_symbolTable(fd2, secTab2);
+	symbolTable *st_out    = read_symbolTable(fd1, secTab1); // En réalité, on duplique la table des symboles du premier fichier
 	Elf32_Word symbsize    = secTab1->shdr[st1->symtabIndex]->sh_size;
 	Fusion **fusion        = NULL;
 

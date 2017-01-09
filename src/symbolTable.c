@@ -38,7 +38,7 @@ char *get_dynamic_symbol_name(symbolTable *symTabFull, unsigned index) {
 	return get_symbol_name(symTabFull->dynsym, symTabFull->dynSymbolNameTable, index);
 }
 
-Elf32_Sym **read_Elf32_Sym(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, int *nbSymbol, int sectionIndex) {
+Elf32_Sym **read_Elf32_Sym(int fd, Elf32_Shdr **shdr, int *nbSymbol, int sectionIndex) {
 
 	Elf32_Sym **symtab;
 
@@ -95,7 +95,7 @@ void dump_symtab(int nbSymbol, Elf32_Sym **symtab, char *symbolNameTable, char *
 	}
 }
 
-symbolTable *read_symbolTable(int fd, Elf32_Ehdr *ehdr, Section_Table *secTab) {
+symbolTable *read_symbolTable(int fd, Section_Table *secTab) {
 	int tmpSymtabIndex = -1,
 		tmpStrtabIndex = -1;
 
@@ -116,7 +116,7 @@ symbolTable *read_symbolTable(int fd, Elf32_Ehdr *ehdr, Section_Table *secTab) {
 	// TODO: (Gaetan) Fatoriser code
 	tmpSymtabIndex = get_section_index(secTab, SHT_DYNSYM);
 	if (tmpSymtabIndex != -1) {
-		symTabToRead->dynsym = read_Elf32_Sym(fd, ehdr, secTab->shdr, &symTabToRead->nbDynSymbol, tmpSymtabIndex);
+		symTabToRead->dynsym = read_Elf32_Sym(fd, secTab->shdr, &symTabToRead->nbDynSymbol, tmpSymtabIndex);
 		if (symTabToRead->dynsym != NULL) {
 			tmpStrtabIndex = secTab->shdr[tmpSymtabIndex]->sh_link;
 			symTabToRead->dynsymIndex = tmpStrtabIndex;
@@ -126,7 +126,7 @@ symbolTable *read_symbolTable(int fd, Elf32_Ehdr *ehdr, Section_Table *secTab) {
 	}
 	tmpSymtabIndex = get_section_index(secTab, SHT_SYMTAB);
 	if (tmpSymtabIndex != -1) {
-		symTabToRead->symtab = read_Elf32_Sym(fd, ehdr, secTab->shdr, &symTabToRead->nbSymbol, tmpSymtabIndex);
+		symTabToRead->symtab = read_Elf32_Sym(fd, secTab->shdr, &symTabToRead->nbSymbol, tmpSymtabIndex);
 		if (symTabToRead->symtab != NULL) {
 			tmpStrtabIndex = secTab->shdr[tmpSymtabIndex]->sh_link;
 			symTabToRead->symtabIndex = tmpStrtabIndex;

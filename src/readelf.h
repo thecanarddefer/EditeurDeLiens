@@ -42,11 +42,10 @@ int is_valid_section(Section_Table *secTab, char *name, unsigned *index);
  * Affiche le contenu brut d'une section
  *
  * @param fd:   un descripteur de fichier (ELF32)
- * @param ehdr: une structure de type Elf32_Ehdr initialisée
  * @param secTab: une structure de type Section_Table initialisée
  * @param index: le numéro d'une section
  **/
-void dump_section (int fd, Elf32_Ehdr *ehdr, Section_Table *secTab, unsigned index);
+void dump_section (int fd, Section_Table *secTab, unsigned index);
 
 /**
  * Affiche les informations sur l'en-tête de section lu

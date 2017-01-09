@@ -27,7 +27,7 @@ typedef struct
  *
  * @param secTab:  une structure de type Section_Table initialisé.
  * @param shType: le type de la section recherchée.
- *  
+ *
  * @retourne l'index (int) de la section de type shType
  */
 int get_section_index(Section_Table *secTab, int shType);
@@ -74,23 +74,21 @@ void dump_symtab(int nbSymbol, Elf32_Sym **symtab, char *symbolNameTable, char *
  * stocke et retourne les informations dans un tableau de structures
  *
  * @param fd:   un descripteur de fichier (ELF32)
- * @param ehdr: une structure de type Elf32_Ehdr initialisée
  * @param shdr: un tableau de structures de type Elf32_Shdr
  * @param idxStrTab: indice de la section .strtab
  * @retourne: le tableau de structure.
  **/
-Elf32_Sym **read_Elf32_Sym(int fd, Elf32_Ehdr *ehdr, Elf32_Shdr **shdr, int *nbSymbol, int sectionIndex);
+Elf32_Sym **read_Elf32_Sym(int fd, Elf32_Shdr **shdr, int *nbSymbol, int sectionIndex);
 
 /*
  * Lit est crée un structure contenant le contenu des tables de symbole .symtab et .dynsym
  *
  * @param fd:     un descripteur de fichier (ELF32)
- * @param ehdr:   une structure de type Elf32_Ehdr initialisée
  * @param sectab: une structure de type Section_Table initialisée
  *
  * @retourne: un pointeur vers une structure symbolTable.
  */
-symbolTable *read_symbolTable(int fd, Elf32_Ehdr *ehdr, Section_Table *secTab);
+symbolTable *read_symbolTable(int fd, Section_Table *secTab);
 
 /*
  * Affiche une table de symbole.

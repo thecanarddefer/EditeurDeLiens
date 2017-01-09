@@ -124,7 +124,7 @@ static int parse_file(const char *filename, Arguments *args)
 
 	ehdr       = read_elf_header(fd);
 	secTab     = read_sectionTable(fd, ehdr);
-	symTabFull = read_symbolTable(fd, ehdr, secTab);
+	symTabFull = read_symbolTable(fd, secTab);
 	drel       = read_relocationTables(fd, secTab);
 
 	if(args->display & DSP_FILE_HEADER)
@@ -134,7 +134,7 @@ static int parse_file(const char *filename, Arguments *args)
 	if(args->display & DSP_HEX_DUMP)
 		for(int h = 0; h < args->nb_hexdumps; h++)
 			if(is_valid_section(secTab, args->section_str[h], &args->section_ind[h]))
-				dump_section(fd, ehdr, secTab, args->section_ind[h]);
+				dump_section(fd, secTab, args->section_ind[h]);
 	if(args->display & DSP_SYMS)
 		displ_symbolTable(symTabFull);
 	if(args->display & DSP_RELOCS)
@@ -412,7 +412,7 @@ int is_valid_section(Section_Table *secTab, char *name, unsigned *index)
 #define BYTES_COUNT     16
 #define BLOCKS_COUNT    4
 #define BYTES_PER_BLOCK BYTES_COUNT / BLOCKS_COUNT
-void dump_section (int fd, Elf32_Ehdr *ehdr, Section_Table *secTab, unsigned index){
+void dump_section (int fd, Section_Table *secTab, unsigned index){
 
 	printf("\nAffichage hexadécimal de la section « %s » :\n\n", get_section_name(secTab, index));
 
