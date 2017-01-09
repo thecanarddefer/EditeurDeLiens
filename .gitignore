@@ -36,6 +36,7 @@
 *~
 readelf
 fusion
+fusion_result
 !hello.o
 !vfscanf.o
-
+build
