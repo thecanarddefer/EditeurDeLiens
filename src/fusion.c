@@ -18,10 +18,16 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	int ind, j;
+	int ind, j, err = 0;
 	int fd1    = open(argv[1], O_RDONLY);
 	int fd2    = open(argv[2], O_RDONLY);
 	int fd_out = open(argv[3], O_WRONLY | O_CREAT, 0644);
+	if(fd1 < 0 || fd2 < 0 || fd_out < 0)
+	{
+		fprintf(stderr, "%s : Impossible d'ouvrir un fichier.\n", argv[0]);
+		return 2;
+	}
+
 	unsigned nb_sections   = 1;
 	Elf32_Off offset       = 0;
 	Elf32_Ehdr *ehdr1      = read_elf_header(fd1);
@@ -31,6 +37,9 @@ int main(int argc, char *argv[])
 	symbolTable *st1       = read_symbolTable(fd1, secTab1);
 	symbolTable *st2       = read_symbolTable(fd2, secTab2);
 	symbolTable *st_out    = read_symbolTable(fd1, secTab1); // En réalité, on duplique la table des symboles du premier fichier
+	Data_Rel *drel1        = read_relocationTables(fd1, secTab1);
+	Data_Rel *drel2        = read_relocationTables(fd2, secTab2);
+	Data_Rel *drel_out     = read_relocationTables(fd1, secTab1);
 	Elf32_Word symbsize    = secTab1->shdr[st1->symtabIndex]->sh_size;
 	Fusion **fusion        = NULL;
 
@@ -140,7 +149,8 @@ int main(int argc, char *argv[])
 				/* Un symbole global est défini deux fois, on abandonne... */
 				remove(argv[3]);
 				fprintf(stderr, "%s : le symbole « %s » est défini plus d'une fois !\n", argv[0], buff);
-				return 2;
+				err = 3;
+				goto clean;
 			}
 			else if(is_global_st_out && is_global_st2 && (st_out->symtab[ind]->st_shndx == SHN_UNDEF) && (st2->symtab[i]->st_shndx != SHN_UNDEF))
 			{
@@ -193,9 +203,21 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	//TODO: Tables des réimplantations
+	/*for(int i = 0; i < drel2->nb_rel; i++)
+	{
+		printf("==> Section REL %i :\n", i);
+		for(r = 0; r < drel2->e_rel[i]; r++)
+		{
+			printf("Réimplantations %i : %i %i\n", j, ELF32_R_TYPE(drel2->rel[i][r]->r_info), ELF32_R_SYM(drel2->rel[i][r]->r_info));
+		}
+		printf("\n");
+	}*/
+
 	sort_new_symbol_table(st_out);
 	dump_symtab(st_out->nbSymbol, st_out->symtab, st_out->symbolNameTable, st_out->symTableName); // Pour debug
 
+clean:
 	close(fd1);
 	close(fd2);
 	close(fd_out);
@@ -206,11 +228,14 @@ int main(int argc, char *argv[])
 	destroy_symbolTable(st1);
 	destroy_symbolTable(st2);
 	destroy_symbolTable(st_out);
+	destroy_relocationTables(drel1);
+	destroy_relocationTables(drel2);
+	destroy_relocationTables(drel_out);
 	for(int i = 0; i < nb_sections; i++)
 		free(fusion[i]);
 	free(fusion);
 
-	return 0;
+	return err;
 }
 
 int write_progbits_in_file(int fd_in, int fd_out, Elf32_Word size, Elf32_Off offset)
