@@ -107,14 +107,14 @@ void displ_symbolTable(symbolTable *s);
 /**
  * Libère la mémoire occupée par une structure Symtab_Struct
  *
- * @param symTabFull: une structure de type Symtab_Struct initialisée
+ * @param s: une structure de type Symtab_Struct initialisée
  **/
 void destroy_symtab_struct(Symtab_Struct *s);
 
 /**
  * Libère la mémoire occupée par une structure symbolTable
  *
- * @param symTabFull: une structure de type symbolTable initialisée
+ * @param s: une structure de type symbolTable initialisée
  **/
 void destroy_symbolTable(symbolTable *s);
 
