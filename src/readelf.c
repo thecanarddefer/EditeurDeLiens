@@ -669,8 +669,8 @@ int isDynamicRel(int rel_type) {
 static inline Elf32_Addr get_symbol_value_generic(symbolTable *symTabFull, Elf32_Word info)
 {
 	return isDynamicRel(ELF32_R_TYPE(info)) ?
-		symTabFull->dynsym[ELF32_R_SYM(info)]->st_value :
-		symTabFull->symtab[ELF32_R_SYM(info)]->st_value;
+		symTabFull->dynsym->tab[ELF32_R_SYM(info)]->st_value :
+		symTabFull->symtab->tab[ELF32_R_SYM(info)]->st_value;
 }
 
 static inline char *get_symbol_name_generic(symbolTable *symTabFull, Elf32_Word info)
