@@ -28,3 +28,7 @@
 ## Lundi 9 janvier 2017
 * Nombreuses améliorations et simplifications
 * Fusion, renumérotation et correction des symboles (étape 7)
+
+## Mardi 10 janvier 2017
+* Construction des nouvelles tables de réimplantations
+* Améliorations diverses
