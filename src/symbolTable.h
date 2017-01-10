@@ -77,7 +77,7 @@ Elf32_Sym **read_Elf32_Sym(int fd, Elf32_Shdr **shdr, int *nbSymbol, int section
  * @param shType: le type de la table des symbole (SHT_DYNSYM / SHT_SYMTAB)
  * @retourne: une structure Symtab_Struct remplie.
  **/
-Symtab_Struct *read_symtab_struct(int fd, Section_Table *secTab, int shType) {
+Symtab_Struct *read_symtab_struct(int fd, Section_Table *secTab, int shType);
 
 /*
  * Lit est crée un structure contenant le contenu des tables de symbole .symtab et .dynsym
@@ -103,12 +103,20 @@ void dump_symtab(Symtab_Struct *s);
  */
 void displ_symbolTable(symbolTable *s);
 
+
+/**
+ * Libère la mémoire occupée par une structure Symtab_Struct
+ *
+ * @param symTabFull: une structure de type Symtab_Struct initialisée
+ **/
+void destroy_symtab_struct(Symtab_Struct *s);
+
 /**
  * Libère la mémoire occupée par une structure symbolTable
  *
  * @param symTabFull: une structure de type symbolTable initialisée
  **/
-void destroy_symbolTable(symbolTable *symTabFull);
+void destroy_symbolTable(symbolTable *s);
 
 
 #endif

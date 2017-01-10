@@ -31,11 +31,11 @@ char *get_symbol_name(Elf32_Sym **symtab, char *table, unsigned index) {
 }
 
 char *get_static_symbol_name(symbolTable *symTabFull, unsigned index) {
-	return get_symbol_name(symTabFull->symtab, symTabFull->symbolNameTable, index);
+	return get_symbol_name(symTabFull->symtab->tab, symTabFull->symtab->symbolNameTable, index);
 }
 
 char *get_dynamic_symbol_name(symbolTable *symTabFull, unsigned index) {
-	return get_symbol_name(symTabFull->dynsym, symTabFull->dynSymbolNameTable, index);
+	return get_symbol_name(symTabFull->dynsym->tab, symTabFull->dynsym->symbolNameTable, index);
 }
 
 Elf32_Sym **read_Elf32_Sym(int fd, Elf32_Shdr **shdr, int *nbSymbol, int sectionIndex) {
@@ -62,7 +62,6 @@ Elf32_Sym **read_Elf32_Sym(int fd, Elf32_Shdr **shdr, int *nbSymbol, int section
 	return symtab;
 }
 
-
 Symtab_Struct *read_symtab_struct(int fd, Section_Table *secTab, int shType) {
 	int tmpSymtabIndex = -1,
 		tmpStrtabIndex = -1;
@@ -72,7 +71,7 @@ Symtab_Struct *read_symtab_struct(int fd, Section_Table *secTab, int shType) {
 
 	// Init
 	s->strIndex = -1;
-	s->nbSymbol = -1;
+	s->nbSymbol = 0;
 	s->tab = NULL;
 	s->name = NULL;
 	s->symbolNameTable = NULL;
@@ -90,6 +89,7 @@ Symtab_Struct *read_symtab_struct(int fd, Section_Table *secTab, int shType) {
 	return s;
 }
 
+// TODO: symbolTable.c:93:14: error: static declaration of ‘read_symbolTable’ follows non-static declaration
 symbolTable *read_symbolTable(int fd, Section_Table *secTab) {
 	symbolTable *symTabToRead;
 	symTabToRead = malloc(sizeof(symbolTable));
@@ -114,7 +114,7 @@ void dump_symtab(Symtab_Struct *s) {
 
 	printf("\n Table de symboles « %s » contient %i entrées:\n", s->name, s->nbSymbol);
 	printf("   Num:    Valeur Tail Type    Lien   Vis      Ndx Nom\n");
-	for (i = 0; i < nbSymbol; ++i) {
+	for (i = 0; i < s->nbSymbol; ++i) {
 		printf("%6d: ", i);
 		printf("%08x ", s->tab[i]->st_value);
 		printf("%5d ", s->tab[i]->st_size);
@@ -148,18 +148,17 @@ void displ_symbolTable(symbolTable *s) {
 }
 
 
+void destroy_symtab_struct(Symtab_Struct *s) {
+	for(int i = 0; i < s->nbSymbol; i++)
+		free(s->tab[i]);
+	free(s->symbolNameTable);
+	free(s);
+}
+
 // Gestion Memoire
-void destroy_symbolTable(symbolTable *s)
-{
-	for(int i = 0; i < s->symtab->nbSymbol; i++)
-		free(s->symtab->tab[i]);
-	free(s->symtab->symbolNameTable);
-	free(s->symtab->name);
-	free(s->symtab);
-	for(int i = 0; i < s->nbDynSymbol; i++)
-		free(s->dynsym->tab[i]);
-	free(s->dynsym->symbolNameTable);
-	free(s->dynsym->name);
-	free(s->dynsym);
+void destroy_symbolTable(symbolTable *s) {
+	destroy_symtab_struct(s->symtab);
+	destroy_symtab_struct(s->dynsym);
+
 	free(s);
 }

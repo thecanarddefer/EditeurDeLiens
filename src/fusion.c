@@ -30,8 +30,9 @@ int main(int argc, char *argv[])
 	Section_Table *secTab2 = read_sectionTable(fd2, ehdr2);
 	symbolTable *st1       = read_symbolTable(fd1, secTab1);
 	symbolTable *st2       = read_symbolTable(fd2, secTab2);
-	symbolTable *st_out    = read_symbolTable(fd1, secTab1); // En réalité, on duplique la table des symboles du premier fichier
-	Elf32_Word symbsize    = secTab1->shdr[st1->symtabIndex]->sh_size;
+	Symtab_Struct *st_out    = read_symtab_struct(fd1, secTab1, SHT_SYMTAB); // En réalité, on duplique la table des symboles du premier fichier
+	// symbolTable st_out est maintenant une Symtab_Struct (plus à propos puisque aucune action sur SymbolTable->dynsym)
+	Elf32_Word symbsize    = secTab1->shdr[st1->symtab->strIndex]->sh_size;
 	Fusion **fusion        = NULL;
 
 	/* On parcours les sections PROGBITS du premier fichier */
@@ -119,9 +120,9 @@ int main(int argc, char *argv[])
 
 	/* On met à jour l'indice de section des symboles du premier fichier (à ce stade là, st_out = st1) */
 	for(int i = 1; i < st_out->nbSymbol; i++)
-		update_section_index_in_symbol(fusion, nb_sections, secTab1, st_out->symtab[i]);
+		update_section_index_in_symbol(fusion, nb_sections, secTab1, st_out->tab[i]);
 
-	for(int i = 1; i < st2->nbSymbol; i++)
+	for(int i = 1; i < st2->symtab->nbSymbol; i++)
 	{
 
 		char *buff = get_static_symbol_name(st2, i);
@@ -130,61 +131,61 @@ int main(int argc, char *argv[])
 		if(shndx > 0)
 		{
 			/* On calcule l'indice correspondant au symbole déjà présent en se basant sur son nom */
-			for(j = 0; (j < st_out->nbSymbol) && strcmp(get_symbol_name(st_out->symtab, st_out->symbolNameTable, j), buff); j++);
+			for(j = 0; (j < st_out->nbSymbol) && strcmp(get_symbol_name(st_out->tab, st_out->symbolNameTable, j), buff); j++);
 			ind = j;
-			const int is_global_st_out = (ELF32_ST_BIND(st_out->symtab[ind]->st_info) == STB_GLOBAL);
-			const int is_global_st2    = (ELF32_ST_BIND(st2->symtab[i]->st_info)      == STB_GLOBAL);
+			const int is_global_st_out = (ELF32_ST_BIND(st_out->tab[ind]->st_info) == STB_GLOBAL);
+			const int is_global_st2    = (ELF32_ST_BIND(st2->symtab->tab[i]->st_info)      == STB_GLOBAL);
 
-			if(is_global_st_out && is_global_st2 && (st_out->symtab[ind]->st_shndx != SHN_UNDEF) && (st2->symtab[i]->st_shndx != SHN_UNDEF))
+			if(is_global_st_out && is_global_st2 && (st_out->tab[ind]->st_shndx != SHN_UNDEF) && (st2->symtab->tab[i]->st_shndx != SHN_UNDEF))
 			{
 				/* Un symbole global est défini deux fois, on abandonne... */
 				remove(argv[3]);
 				fprintf(stderr, "%s : le symbole « %s » est défini plus d'une fois !\n", argv[0], buff);
 				return 2;
 			}
-			else if(is_global_st_out && is_global_st2 && (st_out->symtab[ind]->st_shndx == SHN_UNDEF) && (st2->symtab[i]->st_shndx != SHN_UNDEF))
+			else if(is_global_st_out && is_global_st2 && (st_out->tab[ind]->st_shndx == SHN_UNDEF) && (st2->symtab->tab[i]->st_shndx != SHN_UNDEF))
 			{
 				/* On remplace le symbole global indéfini par le défini, sans toucher à st_name */
-				st_out->symtab[ind]->st_value = st2->symtab[i]->st_value;
-				st_out->symtab[ind]->st_size  = st2->symtab[i]->st_size;
-				st_out->symtab[ind]->st_info  = st2->symtab[i]->st_info;
-				st_out->symtab[ind]->st_other = st2->symtab[i]->st_other;
-				st_out->symtab[ind]->st_shndx = st2->symtab[i]->st_shndx;
-				update_section_index_in_symbol(fusion, nb_sections, secTab2, st_out->symtab[ind]);
+				st_out->tab[ind]->st_value = st2->symtab->tab[i]->st_value;
+				st_out->tab[ind]->st_size  = st2->symtab->tab[i]->st_size;
+				st_out->tab[ind]->st_info  = st2->symtab->tab[i]->st_info;
+				st_out->tab[ind]->st_other = st2->symtab->tab[i]->st_other;
+				st_out->tab[ind]->st_shndx = st2->symtab->tab[i]->st_shndx;
+				update_section_index_in_symbol(fusion, nb_sections, secTab2, st_out->tab[ind]);
 			}
 			else if(!is_global_st_out && !is_global_st2)
 			{
 				/* Un autre symbole local a le même nom, on ajoute le symbole à la table des symboles uniquement */
-				ind = add_symbol_in_table(st_out, st2->symtab[i]);
-				st_out->symtab[ind]->st_name = shndx;
-				update_section_index_in_symbol(fusion, nb_sections, secTab2, st_out->symtab[ind]);
+				ind = add_symbol_in_table(st_out, st2->symtab->tab[i]);
+				st_out->tab[ind]->st_name = shndx;
+				update_section_index_in_symbol(fusion, nb_sections, secTab2, st_out->tab[ind]);
 
 				/* On met à jour la valeur du nouveau symbole */
 				for(j = 0; (j < secTab1->nb_sections) && strcmp(get_section_name(secTab1, j),
-					get_section_name(secTab2, st2->symtab[i]->st_shndx)); j++);
+					get_section_name(secTab2, st2->symtab->tab[i]->st_shndx)); j++);
 				if(j < secTab1->nb_sections)
-					st_out->symtab[ind]->st_value += secTab1->shdr[j]->sh_size;
+					st_out->tab[ind]->st_value += secTab1->shdr[j]->sh_size;
 			}
 		}
 		else
 		{
 			j = secTab1->nb_sections;
-			if((ELF32_ST_BIND(st2->symtab[i]->st_info) == STB_LOCAL) && st2->symtab[i]->st_shndx < secTab2->nb_sections)
+			if((ELF32_ST_BIND(st2->symtab->tab[i]->st_info) == STB_LOCAL) && st2->symtab->tab[i]->st_shndx < secTab2->nb_sections)
 			{
 				/* On cherche s'il s'agit d'un symbole de section et qu'il n'est pas déjà défini */
 				for(j = 0; (j < secTab1->nb_sections) && strcmp(get_section_name(secTab1, j),
-					get_section_name(secTab2, st2->symtab[i]->st_shndx)); j++);
+					get_section_name(secTab2, st2->symtab->tab[i]->st_shndx)); j++);
 			}
 
 			if(j == secTab1->nb_sections)
 			{
 				/* On ajoute le symbole à la nouvelle table */
-				ind = add_symbol_in_table(st_out, st2->symtab[i]);
-				update_section_index_in_symbol(fusion, nb_sections, secTab2, st_out->symtab[ind]);
+				ind = add_symbol_in_table(st_out, st2->symtab->tab[i]);
+				update_section_index_in_symbol(fusion, nb_sections, secTab2, st_out->tab[ind]);
 
 				if(strlen(buff) > 0)
 				{
-					st_out->symtab[ind]->st_name = symbsize;
+					st_out->tab[ind]->st_name = symbsize;
 					st_out->symbolNameTable = realloc(st_out->symbolNameTable, symbsize + strlen(buff) + 1);
 					strcat(&(st_out->symbolNameTable[symbsize]), buff);
 					symbsize += strlen(buff) + 1;
@@ -194,7 +195,7 @@ int main(int argc, char *argv[])
 	}
 
 	sort_new_symbol_table(st_out);
-	dump_symtab(st_out->nbSymbol, st_out->symtab, st_out->symbolNameTable, st_out->symTableName); // Pour debug
+	dump_symtab(st_out); // Pour debug
 
 	close(fd1);
 	close(fd2);
@@ -205,7 +206,7 @@ int main(int argc, char *argv[])
 	destroy_sectionTable(secTab2);
 	destroy_symbolTable(st1);
 	destroy_symbolTable(st2);
-	destroy_symbolTable(st_out);
+	destroy_symtab_struct(st_out);
 	for(int i = 0; i < nb_sections; i++)
 		free(fusion[i]);
 	free(fusion);
@@ -249,14 +250,14 @@ int find_index_in_name_table(char *haystack, char *needle, Elf32_Word size)
 	return (i < size) ? i : -1;
 }
 
-int add_symbol_in_table(symbolTable *st, Elf32_Sym *symtab)
+int add_symbol_in_table(Symtab_Struct *st, Elf32_Sym *symtab)
 {
 	int ind = st->nbSymbol;
 
 	st->nbSymbol++;
-	st->symtab = realloc(st->symtab, sizeof(Elf32_Sym*) * st->nbSymbol);
-	st->symtab[ind] = malloc(sizeof(Elf32_Sym));
-	memcpy(st->symtab[ind], symtab, sizeof(Elf32_Sym));
+	st->tab = realloc(st->tab, sizeof(Elf32_Sym*) * st->nbSymbol);
+	st->tab[ind] = malloc(sizeof(Elf32_Sym));
+	memcpy(st->tab[ind], symtab, sizeof(Elf32_Sym));
 
 	return ind;
 }
@@ -270,35 +271,35 @@ static inline void swap_symbols(Elf32_Sym *sym1, Elf32_Sym *sym2)
 	free(tmp);
 }
 
-void sort_new_symbol_table(symbolTable *st)
+void sort_new_symbol_table(Symtab_Struct *st)
 {
 	int j, cpt = 0;
 
 	for(int i = 1; i < st->nbSymbol; i++)
 	{
-		if(ELF32_ST_TYPE(st->symtab[i]->st_info) == STT_SECTION)
+		if(ELF32_ST_TYPE(st->tab[i]->st_info) == STT_SECTION)
 		{
 			cpt++;
 			continue;
 		}
 
-		for(j = i; (j < st->nbSymbol) && ELF32_ST_TYPE(st->symtab[j]->st_info) != STT_SECTION; j++);
+		for(j = i; (j < st->nbSymbol) && ELF32_ST_TYPE(st->tab[j]->st_info) != STT_SECTION; j++);
 		if(j == st->nbSymbol)
 			continue;
 
-		swap_symbols(st->symtab[i], st->symtab[j]);
+		swap_symbols(st->tab[i], st->tab[j]);
 		cpt++;
 	}
 
 	for(int i = cpt; i < st->nbSymbol; i++)
 	{
-		if(ELF32_ST_BIND(st->symtab[i]->st_info) != STB_GLOBAL)
+		if(ELF32_ST_BIND(st->tab[i]->st_info) != STB_GLOBAL)
 			continue;
 
-		for(j = st->nbSymbol - 1; (j >= i) && ELF32_ST_BIND(st->symtab[j]->st_info) == STB_GLOBAL; j--);
+		for(j = st->nbSymbol - 1; (j >= i) && ELF32_ST_BIND(st->tab[j]->st_info) == STB_GLOBAL; j--);
 		if(j < i)
 			continue;
 
-		swap_symbols(st->symtab[i], st->symtab[j]);
+		swap_symbols(st->tab[i], st->tab[j]);
 	}
 }

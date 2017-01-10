@@ -52,14 +52,14 @@ int find_index_in_name_table(char *haystack, char *needle, Elf32_Word size);
  * @param symtab: un symbole de type Elf32_Sym initialisé
  * @retourne l'indice où le nouveau symbole a été ajouté
  **/
-int add_symbol_in_table(symbolTable *st, Elf32_Sym *symtab);
+int add_symbol_in_table(Symtab_Struct *st, Elf32_Sym *symtab);
 
 /**
  * Trie une table des symboles
  *
  * @param st: une structure de type symbolTable
  **/
-void sort_new_symbol_table(symbolTable *st);
+void sort_new_symbol_table(Symtab_Struct *st);
 
 
 #endif
