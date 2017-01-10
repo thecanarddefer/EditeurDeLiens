@@ -4,22 +4,19 @@
 #include <elf.h>
 #include "elf_common.h"
 
+typedef struct
+{
+    Elf32_Sym **tab; // Table des symnoles
+    char *name; // Nom de la table des symboles
+    char *symbolNameTable; // Table des noms de symboles
+    int nbSymbol; // Nombre de symboles
+    int strIndex; // Index de la table des noms ?
+} Symtab_Struct;
 
 typedef struct
 {
-    Elf32_Sym **symtab;
-    Elf32_Sym **dynsym;
-
-    char *dynTableName; // Nom de la table des symboles dynamiques (SHT_DYMTAB)
-    char *symTableName; // Nom de la table des symboles (SHT_SYMTAB)
-    char *dynSymbolNameTable; // Table des noms de symboles de .dynsym (.dynstr)
-    char *symbolNameTable; // Table des noms de symboles de .symtab (.strtab)
-
-    int nbDynSymbol; // Nombre de symboles dans .dynsym
-    int nbSymbol; // Nombre de symboles dans .symtab
-    int dynsymIndex;
-    int symtabIndex;
-
+    Symtab_Struct *dynsym; // Structure de la table des symboles dynamiques
+    Symtab_Struct *symtab; // Structure de la table des symboles statiques
 } symbolTable;
 
 /*
@@ -61,15 +58,6 @@ char *get_static_symbol_name(symbolTable *symTabFull, unsigned index);
 char *get_dynamic_symbol_name(symbolTable *symTabFull, unsigned index);
 
 /**
- * Affiche la table des symboles
- *
- * @param nbElt: le nombre de symboles dans la table
- * @param symtab:  un tableau de structures de type Elf32_Sym
- * @param table: la table des noms de symbole
- **/
-void dump_symtab(int nbSymbol, Elf32_Sym **symtab, char *symbolNameTable, char *name);
-
-/**
  * Lis la table des symboles d'un fichiers ELF 32 bits,
  * stocke et retourne les informations dans un tableau de structures
  *
@@ -79,6 +67,17 @@ void dump_symtab(int nbSymbol, Elf32_Sym **symtab, char *symbolNameTable, char *
  * @retourne: le tableau de structure.
  **/
 Elf32_Sym **read_Elf32_Sym(int fd, Elf32_Shdr **shdr, int *nbSymbol, int sectionIndex);
+
+
+/**
+ * Crée et remplie une structure Symtab_Struct (".symtab" ou ".dynsym")
+ *
+ * @param fd:   un descripteur de fichier (ELF32)
+ * @param secTab: une structure de type Section_Table initialisée
+ * @param shType: le type de la table des symbole (SHT_DYNSYM / SHT_SYMTAB)
+ * @retourne: une structure Symtab_Struct remplie.
+ **/
+Symtab_Struct *read_symtab_struct(int fd, Section_Table *secTab, int shType) {
 
 /*
  * Lit est crée un structure contenant le contenu des tables de symbole .symtab et .dynsym
@@ -90,12 +89,19 @@ Elf32_Sym **read_Elf32_Sym(int fd, Elf32_Shdr **shdr, int *nbSymbol, int section
  */
 symbolTable *read_symbolTable(int fd, Section_Table *secTab);
 
+/**
+ * Affiche la table des symboles
+ *
+ * @param s: Une structure Symtab_Struct.
+ **/
+void dump_symtab(Symtab_Struct *s);
+
 /*
  * Affiche une table de symbole.
  *
  * @param symTabToDisp: un pointeur vers une structure symbolTable contenant les informations à afficher.
  */
-void displ_symbolTable(symbolTable *symTabToDisp);
+void displ_symbolTable(symbolTable *s);
 
 /**
  * Libère la mémoire occupée par une structure symbolTable
