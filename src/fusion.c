@@ -28,8 +28,6 @@ int main(int argc, char *argv[])
 		return 2;
 	}
 
-	unsigned nb_sections   = 1;
-	Elf32_Off offset       = 0;
 	Elf32_Ehdr *ehdr1      = read_elf_header(fd1);
 	Elf32_Ehdr *ehdr2      = read_elf_header(fd2);
 	Section_Table *secTab1 = read_sectionTable(fd1, ehdr1);
@@ -37,112 +35,59 @@ int main(int argc, char *argv[])
 	symbolTable *st1       = read_symbolTable(fd1, secTab1);
 	symbolTable *st2       = read_symbolTable(fd2, secTab2);
 	Symtab_Struct *st_out    = read_symtab_struct(fd1, secTab1, SHT_SYMTAB); // En réalité, on duplique la table des symboles du premier fichier
-	// symbolTable st_out est maintenant une Symtab_Struct (plus à propos puisque aucune action sur SymbolTable->dynsym)
 	Data_Rel *drel1        = read_relocationTables(fd1, secTab1);
 	Data_Rel *drel2        = read_relocationTables(fd2, secTab2);
 	Data_Rel *drel_out     = read_relocationTables(fd1, secTab1);
 	Elf32_Word symbsize    = secTab1->shdr[st1->symtab->strIndex]->sh_size;
-	Fusion **fusion        = NULL;
+	Data_fusion *df = malloc(sizeof(Data_fusion));
+	df->f = NULL;
+	df->offset = 0;
+	df->nb_sections = 1;
 
 	/* On crée la nouvelle section n°0 de type NULL */
-	ind = nb_sections - 1;
-	fusion = realloc(fusion, sizeof(Fusion*) * nb_sections);
-	fusion[ind] = malloc(sizeof(Fusion));
-	fusion[ind]->ptr_shdr1 = secTab1->shdr[0];
-	fusion[ind]->ptr_shdr2 = secTab2->shdr[0];
-	fusion[ind]->size = secTab2->shdr[0]->sh_size;
-	fusion[ind]->offset = offset;
-	strcpy(fusion[ind]->section, get_section_name(secTab1, 0));
-	offset += fusion[ind]->size;
+	ind = df->nb_sections - 1;
+	df->f = realloc(df->f, sizeof(Fusion*) * df->nb_sections);
+	df->f[ind] = malloc(sizeof(Fusion));
+	df->f[ind]->ptr_shdr1 = secTab1->shdr[0];
+	df->f[ind]->ptr_shdr2 = secTab2->shdr[0];
+	df->f[ind]->size = secTab2->shdr[0]->sh_size;
+	df->f[ind]->offset = df->offset;
+	strcpy(df->f[ind]->section, get_section_name(secTab1, 0));
+	df->offset += df->f[ind]->size;
 
-	/* On parcours les sections PROGBITS du premier fichier */
-	for(int i = 0; i < secTab1->nb_sections; i++)
-	{
-		if(secTab1->shdr[i]->sh_type != SHT_PROGBITS && secTab1->shdr[i]->sh_type != SHT_NOBITS)
-			continue;
-
-		/* Recherche si la section est présente dans le second fichier */
-		for(j = 0; (j < secTab2->nb_sections) && strcmp(get_section_name(secTab1, i), get_section_name(secTab2, j)); j++);
-
-		if(offset == 0)
-			offset = secTab1->shdr[i]->sh_offset;
-
-		nb_sections++;
-		ind = nb_sections - 1;
-		fusion = realloc(fusion, sizeof(Fusion*) * nb_sections);
-		fusion[ind] = malloc(sizeof(Fusion));
-		fusion[ind]->ptr_shdr1 = secTab1->shdr[i];
-
-		if(j != secTab2->nb_sections)
-		{
-			/* La section est présente dans les deux fichiers */
-			fusion[ind]->size = secTab1->shdr[i]->sh_size + secTab2->shdr[j]->sh_size;
-			fusion[ind]->ptr_shdr2 = secTab2->shdr[j];
-		}
-		else
-		{
-			/* La section est présente uniquement dans le premier fichier */
-			fusion[ind]->size = secTab1->shdr[i]->sh_size;
-			fusion[ind]->ptr_shdr2 = NULL;
-		}
-
-		fusion[ind]->offset = offset;
-		strcpy(fusion[ind]->section, get_section_name(secTab1, i));
-		offset = fusion[ind]->size;
-	}
-
-	/* On recherche les sections PROGBITS du second fichier qui ne sont pas présentes dans le premier */
-	for(int i = 0; i < secTab2->nb_sections; i++)
-	{
-		if(secTab2->shdr[i]->sh_type != SHT_PROGBITS && secTab2->shdr[i]->sh_type != SHT_NOBITS)
-			continue;
-
-		/* Recherche si la section est absente du premier fichier */
-		for(j = 0; (j < secTab1->nb_sections) && strcmp(get_section_name(secTab1, j), get_section_name(secTab2, i)); j++);
-
-		if(j == secTab1->nb_sections)
-		{
-			nb_sections++;
-			ind = nb_sections - 1;
-			fusion = realloc(fusion, sizeof(Fusion*) * nb_sections);
-			fusion[ind] = malloc(sizeof(Fusion));
-			fusion[ind]->ptr_shdr1 = NULL;
-			fusion[ind]->ptr_shdr2 = secTab2->shdr[i];
-			fusion[ind]->size = secTab2->shdr[i]->sh_size;
-			fusion[ind]->offset = offset;
-			strcpy(fusion[ind]->section, get_section_name(secTab2, i));
-			offset += fusion[ind]->size;
-		}
-	}
+	gather_sections(df, secTab1, secTab2, SHT_PROGBITS, SHT_NOBITS);
+	gather_sections(df, secTab1, secTab2, SHT_REL, SHT_RELA);
 
 	/* On crée le fichier de sortie qui contient les sections PROGBITS fusionnées */
 	lseek(fd_out, ehdr1->e_ehsize, SEEK_SET);
-	for(int i = 1; i < nb_sections; i++)
+	for(int i = 1; i < df->nb_sections; i++)
 	{
-		if(fusion[i]->ptr_shdr1 != NULL)
+		if(df->f[i]->ptr_shdr1 != NULL)
 		{
+			printf("TEST1 : %s %i\n", df->f[i]->section, df->f[i]->ptr_shdr1->sh_type);
 			/* On écrit la section du premier fichier */
-			write_progbits_in_file(fd1, fd_out, fusion[i]->ptr_shdr1->sh_size, fusion[i]->ptr_shdr1->sh_offset);
-			if (fusion[i]->ptr_shdr2 != NULL)
+			write_progbits_in_file(fd1, fd_out, df->f[i]->ptr_shdr1->sh_size, df->f[i]->ptr_shdr1->sh_offset);
+			if (df->f[i]->ptr_shdr2 != NULL)
 			{
 				/* On écrit la section du second fichier */
-				write_progbits_in_file(fd2, fd_out, fusion[i]->ptr_shdr2->sh_size, fusion[i]->ptr_shdr2->sh_offset);
+				write_progbits_in_file(fd2, fd_out, df->f[i]->ptr_shdr2->sh_size, df->f[i]->ptr_shdr2->sh_offset);
 			}
 		}
 		else
 		{
+			printf("TEST2 : %s %i\n", df->f[i]->section, df->f[i]->ptr_shdr2->sh_type);
 			/* On écrit uniquement la section du second fichier */
-			write_progbits_in_file(fd2, fd_out, fusion[i]->ptr_shdr2->sh_size, fusion[i]->ptr_shdr2->sh_offset);
+			write_progbits_in_file(fd2, fd_out, df->f[i]->ptr_shdr2->sh_size, df->f[i]->ptr_shdr2->sh_offset);
 		}
 	}
 
 	/* On calcule les nouveaux indices de section */
-	Elf32_Section *newsec1 = find_new_section_index(fusion, nb_sections, secTab1);
-	Elf32_Section *newsec2 = find_new_section_index(fusion, nb_sections, secTab2);
+	Elf32_Section *newsec1 = find_new_section_index(df->f, df->nb_sections, secTab1);
+	Elf32_Section *newsec2 = find_new_section_index(df->f, df->nb_sections, secTab2);
 
 	/* On met à jour l'indice de section des symboles du premier fichier (à ce stade là, st_out = st1) */
 	for(int i = 1; i < st_out->nbSymbol; i++)
-		update_section_index_in_symbol(st_out->tab[i], newsec1, nb_sections);
+		update_section_index_in_symbol(st_out->tab[i], newsec1, df->nb_sections);
 
 	for(int i = 1; i < st2->symtab->nbSymbol; i++)
 	{
@@ -173,14 +118,14 @@ int main(int argc, char *argv[])
 				st_out->tab[ind]->st_info  = st2->symtab->tab[i]->st_info;
 				st_out->tab[ind]->st_other = st2->symtab->tab[i]->st_other;
 				st_out->tab[ind]->st_shndx = st2->symtab->tab[i]->st_shndx;
-				update_section_index_in_symbol(st_out->tab[ind], newsec2, nb_sections);
+				update_section_index_in_symbol(st_out->tab[ind], newsec2, df->nb_sections);
 			}
 			else if(!is_global_st_out && !is_global_st2)
 			{
 				/* Un autre symbole local a le même nom, on ajoute le symbole à la table des symboles uniquement */
 				ind = add_symbol_in_table(st_out, st2->symtab->tab[i]);
 				st_out->tab[ind]->st_name = shndx;
-				update_section_index_in_symbol(st_out->tab[ind], newsec2, nb_sections);
+				update_section_index_in_symbol(st_out->tab[ind], newsec2, df->nb_sections);
 
 				/* On met à jour la valeur du nouveau symbole */
 				for(j = 0; (j < secTab1->nb_sections) && strcmp(get_section_name(secTab1, j),
@@ -203,7 +148,7 @@ int main(int argc, char *argv[])
 			{
 				/* On ajoute le symbole à la nouvelle table */
 				ind = add_symbol_in_table(st_out, st2->symtab->tab[i]);
-				update_section_index_in_symbol(st_out->tab[ind], newsec2, nb_sections);
+				update_section_index_in_symbol(st_out->tab[ind], newsec2, df->nb_sections);
 
 				if(strlen(buff) > 0)
 				{
@@ -245,9 +190,12 @@ clean:
 	destroy_relocationTables(drel2);
 	destroy_relocationTables(drel_out);
 
-	for(int i = 0; i < nb_sections; i++)
-		free(fusion[i]);
-	free(fusion);
+	for(int i = 0; i < df->nb_sections; i++)
+		free(df->f[i]);
+	free(df->f);
+	
+	free(df);
+
 	free(newsec1);
 	free(newsec2);
 
@@ -355,5 +303,69 @@ void sort_new_symbol_table(Symtab_Struct *st)
 			continue;
 
 		swap_symbols(st->tab[i], st->tab[j]);
+	}
+}
+
+void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Table *secTab2, int type1, int type2)
+{
+	int ind, j;
+		/* On parcours les sections PROGBITS du premier fichier */
+	for(int i = 1; i < secTab1->nb_sections; i++)
+	{
+		if(secTab1->shdr[i]->sh_type != type1 && secTab1->shdr[i]->sh_type != type2)
+			continue;
+
+		/* Recherche si la section est présente dans le second fichier */
+		for(j = 0; (j < secTab2->nb_sections) && strcmp(get_section_name(secTab1, i), get_section_name(secTab2, j)); j++);
+
+		if(df->offset == 0)
+			df->offset = secTab1->shdr[i]->sh_offset;
+
+		df->nb_sections++;
+		ind = df->nb_sections - 1;
+		df->f = realloc(df->f, sizeof(Fusion*) * df->nb_sections);
+		df->f[ind] = malloc(sizeof(Fusion));
+		df->f[ind]->ptr_shdr1 = secTab1->shdr[i];
+
+		if(j != secTab2->nb_sections)
+		{
+			/* La section est présente dans les deux fichiers */
+			df->f[ind]->size = secTab1->shdr[i]->sh_size + secTab2->shdr[j]->sh_size;
+			df->f[ind]->ptr_shdr2 = secTab2->shdr[j];
+		}
+		else
+		{
+			/* La section est présente uniquement dans le premier fichier */
+			df->f[ind]->size = secTab1->shdr[i]->sh_size;
+			df->f[ind]->ptr_shdr2 = NULL;
+		}
+
+		df->f[ind]->offset = df->offset;
+		strcpy(df->f[ind]->section, get_section_name(secTab1, i));
+		df->offset = df->f[ind]->size;
+	}
+
+	/* On recherche les sections PROGBITS du second fichier qui ne sont pas présentes dans le premier */
+	for(int i = 1; i < secTab2->nb_sections; i++)
+	{
+		if(secTab2->shdr[i]->sh_type != type1 && secTab2->shdr[i]->sh_type != type2)
+			continue;
+
+		/* Recherche si la section est absente du premier fichier */
+		for(j = 0; (j < secTab1->nb_sections) && strcmp(get_section_name(secTab1, j), get_section_name(secTab2, i)); j++);
+
+		if(j == secTab1->nb_sections)
+		{
+			df->nb_sections++;
+			ind = df->nb_sections - 1;
+			df->f = realloc(df->f, sizeof(Fusion*) * df->nb_sections);
+			df->f[ind] = malloc(sizeof(Fusion));
+			df->f[ind]->ptr_shdr1 = NULL;
+			df->f[ind]->ptr_shdr2 = secTab2->shdr[i];
+			df->f[ind]->size = secTab2->shdr[i]->sh_size;
+			df->f[ind]->offset = df->offset;
+			strcpy(df->f[ind]->section, get_section_name(secTab2, i));
+			df->offset += df->f[ind]->size;
+		}
 	}
 }
