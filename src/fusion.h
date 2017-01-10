@@ -15,6 +15,17 @@ typedef struct
 } Fusion;
 
 /**
+ * Donne la correspondance des numéros de sections d'un fichier d'entrée avec
+ * les numéros de section du fichier de sortie
+ *
+ * @param fusion:      un descrpteur de fichier vers le fichier d'entrée
+ * @param nb_sections: le nombre de sections dans le fichier de sortie
+ * @param secTab:      une structure de type Section_Table initialisée
+ * @retourne un tableau de type Elf32_Section contenant les nouveaux indices de sections
+ **/
+Elf32_Section *find_new_section_index(Fusion **fusion, unsigned nb_sections, Section_Table *secTab);
+
+/**
  * Recopie une section PROGBITS dans un autre fichier
  *
  * PRÉ-CONDITION: le curseur de fd_out est placé au bon endroit
@@ -29,12 +40,11 @@ int write_progbits_in_file(int fd_in, int fd_out, Elf32_Word size, Elf32_Off off
 /**
  * Met à jour l'index de section d'un symbole
  *
- * @param fusion:      une tableau de structures Fusion initialisé
- * @param nb_sections: le nombre de sections depuis la fusion
- * @param secTab:      une structure de type Section_Table initialisée
  * @param symbol:      un symbole de type Elf32_Sym à corriger
+ * @param newsec:      un tableau de type Elf32_Section contenant les nouveaux index de sections
+ * @param nb_sections: le nombre de sections dans le fichier de sortie
  **/
-void update_section_index_in_symbol(Fusion **fusion, unsigned nb_sections, Section_Table *secTab, Elf32_Sym *symbol);
+void update_section_index_in_symbol(Elf32_Sym *symbol, Elf32_Section *newsec, unsigned nb_sections);
 
 /**
  * Calcule l'indice d'une sous-chaîne dans une chaîne

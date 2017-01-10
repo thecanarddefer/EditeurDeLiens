@@ -43,6 +43,17 @@ int main(int argc, char *argv[])
 	Elf32_Word symbsize    = secTab1->shdr[st1->symtabIndex]->sh_size;
 	Fusion **fusion        = NULL;
 
+	/* On crée la nouvelle section n°0 de type NULL */
+	ind = nb_sections - 1;
+	fusion = realloc(fusion, sizeof(Fusion*) * nb_sections);
+	fusion[ind] = malloc(sizeof(Fusion));
+	fusion[ind]->ptr_shdr1 = secTab1->shdr[0];
+	fusion[ind]->ptr_shdr2 = secTab2->shdr[0];
+	fusion[ind]->size = secTab2->shdr[0]->sh_size;
+	fusion[ind]->offset = offset;
+	strcpy(fusion[ind]->section, get_section_name(secTab1, 0));
+	offset += fusion[ind]->size;
+
 	/* On parcours les sections PROGBITS du premier fichier */
 	for(int i = 0; i < secTab1->nb_sections; i++)
 	{
@@ -103,8 +114,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	//TODO: Calculer l'indice des nouvelles sections (toutes celles qui ne sont pas des PROGBITS)
-
 	/* On crée le fichier de sortie qui contient les sections PROGBITS fusionnées */
 	lseek(fd_out, ehdr1->e_ehsize, SEEK_SET);
 	for(int i = 1; i < nb_sections; i++)
@@ -126,13 +135,16 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	/* On calcule les nouveaux indices de section */
+	Elf32_Section *newsec1 = find_new_section_index(fusion, nb_sections, secTab1);
+	Elf32_Section *newsec2 = find_new_section_index(fusion, nb_sections, secTab2);
+
 	/* On met à jour l'indice de section des symboles du premier fichier (à ce stade là, st_out = st1) */
 	for(int i = 1; i < st_out->nbSymbol; i++)
-		update_section_index_in_symbol(fusion, nb_sections, secTab1, st_out->symtab[i]);
+		update_section_index_in_symbol(st_out->symtab[i], newsec1, nb_sections);
 
 	for(int i = 1; i < st2->nbSymbol; i++)
 	{
-
 		char *buff = get_static_symbol_name(st2, i);
 		const int shndx = find_index_in_name_table(st_out->symbolNameTable, buff, symbsize);
 
@@ -160,14 +172,14 @@ int main(int argc, char *argv[])
 				st_out->symtab[ind]->st_info  = st2->symtab[i]->st_info;
 				st_out->symtab[ind]->st_other = st2->symtab[i]->st_other;
 				st_out->symtab[ind]->st_shndx = st2->symtab[i]->st_shndx;
-				update_section_index_in_symbol(fusion, nb_sections, secTab2, st_out->symtab[ind]);
+				update_section_index_in_symbol(st_out->symtab[ind], newsec2, nb_sections);
 			}
 			else if(!is_global_st_out && !is_global_st2)
 			{
 				/* Un autre symbole local a le même nom, on ajoute le symbole à la table des symboles uniquement */
 				ind = add_symbol_in_table(st_out, st2->symtab[i]);
 				st_out->symtab[ind]->st_name = shndx;
-				update_section_index_in_symbol(fusion, nb_sections, secTab2, st_out->symtab[ind]);
+				update_section_index_in_symbol(st_out->symtab[ind], newsec2, nb_sections);
 
 				/* On met à jour la valeur du nouveau symbole */
 				for(j = 0; (j < secTab1->nb_sections) && strcmp(get_section_name(secTab1, j),
@@ -190,7 +202,7 @@ int main(int argc, char *argv[])
 			{
 				/* On ajoute le symbole à la nouvelle table */
 				ind = add_symbol_in_table(st_out, st2->symtab[i]);
-				update_section_index_in_symbol(fusion, nb_sections, secTab2, st_out->symtab[ind]);
+				update_section_index_in_symbol(st_out->symtab[ind], newsec2, nb_sections);
 
 				if(strlen(buff) > 0)
 				{
@@ -234,8 +246,26 @@ clean:
 	for(int i = 0; i < nb_sections; i++)
 		free(fusion[i]);
 	free(fusion);
+	free(newsec1);
+	free(newsec2);
 
 	return err;
+}
+
+Elf32_Section *find_new_section_index(Fusion **fusion, unsigned nb_sections, Section_Table *secTab)
+{
+	int j;
+	Elf32_Section *newsec = malloc(sizeof(Elf32_Section) * secTab->nb_sections);
+
+	for(int i = 0; i < secTab->nb_sections; i++)
+	{
+		for(j = 1; (j < nb_sections) && strcmp(fusion[j]->section, get_section_name(secTab, i)); j++);
+		newsec[i] = (j < nb_sections) ? j : 0;
+		if(j == nb_sections)
+			fprintf(stderr, "ATTENTION : la section n°%i « %s » n'apparaît pas dans la nouvelle table des sections !\n", i, get_section_name(secTab, i));
+	}
+
+	return newsec;
 }
 
 int write_progbits_in_file(int fd_in, int fd_out, Elf32_Word size, Elf32_Off offset)
@@ -252,15 +282,13 @@ int write_progbits_in_file(int fd_in, int fd_out, Elf32_Word size, Elf32_Off off
 		return (r != w);
 }
 
-void update_section_index_in_symbol(Fusion **fusion, unsigned nb_sections, Section_Table *secTab, Elf32_Sym *symbol)
+void update_section_index_in_symbol(Elf32_Sym *symbol, Elf32_Section *newsec, unsigned nb_sections)
 {
-	int i;
-
-	if(symbol->st_shndx >= secTab->nb_sections)
+	if(symbol->st_shndx >= nb_sections)
 		return;
-	for(i = 1; (i < nb_sections) && strcmp(fusion[i]->section, get_section_name(secTab, symbol->st_shndx)); i++);
-
-	symbol->st_shndx = (i < nb_sections) ? i : -2;
+	symbol->st_shndx = newsec[symbol->st_shndx];
+	if(symbol->st_shndx == 0)
+		fprintf(stderr, "ATTENTION : le symbole %i n'est plus lié à une section !\n", symbol->st_name);
 }
 
 int find_index_in_name_table(char *haystack, char *needle, Elf32_Word size)
