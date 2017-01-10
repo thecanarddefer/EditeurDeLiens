@@ -20,6 +20,7 @@ typedef struct
 	Elf32_Off offset;
 	Fusion **f;
 } Data_fusion;
+
 /**
  * Donne la correspondance des numéros de sections d'un fichier d'entrée avec
  * les numéros de section du fichier de sortie
@@ -87,6 +88,14 @@ void sort_new_symbol_table(Symtab_Struct *st);
 
 /**
  * Rassemble les sections des types passés en paramètre
+ *
+ * @param df:       une structure de type Data_fusion
+ * @param secTab1:  une structure de type Section_Table initialisée concernant le premier fichier
+ * @param secTab2:  une structure de type Section_Table initialisée concernant le second fichier
+ * @param nb_types: le nombre de types à passer en argument
+ * @param ...:      les types de section à placer dans df
  **/
-void gather_sections(Data_fusion *fusion_data, Section_Table *secTab1, Section_Table *secTab2, int type1, int type2);
+void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Table *secTab2, int nb_types, ...);
+
+
 #endif

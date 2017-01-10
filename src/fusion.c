@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
 #include <elf.h>
@@ -54,8 +55,8 @@ int main(int argc, char *argv[])
 	strcpy(df->f[ind]->section, get_section_name(secTab1, 0));
 	df->offset += df->f[ind]->size;
 
-	gather_sections(df, secTab1, secTab2, SHT_PROGBITS, SHT_NOBITS);
-	gather_sections(df, secTab1, secTab2, SHT_REL, SHT_RELA);
+	gather_sections(df, secTab1, secTab2, 2, SHT_PROGBITS, SHT_NOBITS);
+	gather_sections(df, secTab1, secTab2, 2, SHT_REL, SHT_RELA);
 
 	/* On crée le fichier de sortie qui contient les sections PROGBITS fusionnées */
 	lseek(fd_out, ehdr1->e_ehsize, SEEK_SET);
@@ -339,13 +340,23 @@ void sort_new_symbol_table(Symtab_Struct *st)
 	}
 }
 
-void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Table *secTab2, int type1, int type2)
+void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Table *secTab2, int nb_types, ...)
 {
 	int ind, j;
-		/* On parcours les sections PROGBITS du premier fichier */
+	Elf32_Word *types = malloc(sizeof(Elf32_Word) * nb_types);
+	va_list aptr;
+
+	/* Récupération des types recherchés */
+	va_start(aptr, nb_types);
+	for(int i = 0; i < nb_types; i++)
+		types[i] = va_arg(aptr, Elf32_Word);
+	va_end(aptr);
+
+	/* On parcours les sections PROGBITS du premier fichier */
 	for(int i = 1; i < secTab1->nb_sections; i++)
 	{
-		if(secTab1->shdr[i]->sh_type != type1 && secTab1->shdr[i]->sh_type != type2)
+		for(j = 0; (j < nb_types) && (secTab1->shdr[i]->sh_type) != types[j]; j++);
+		if(j == nb_types)
 			continue;
 
 		/* Recherche si la section est présente dans le second fichier */
@@ -381,7 +392,8 @@ void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Table *sec
 	/* On recherche les sections PROGBITS du second fichier qui ne sont pas présentes dans le premier */
 	for(int i = 1; i < secTab2->nb_sections; i++)
 	{
-		if(secTab2->shdr[i]->sh_type != type1 && secTab2->shdr[i]->sh_type != type2)
+		for(j = 0; (j < nb_types) && (secTab2->shdr[i]->sh_type) != types[j]; j++);
+		if(j == nb_types)
 			continue;
 
 		/* Recherche si la section est absente du premier fichier */
@@ -401,4 +413,6 @@ void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Table *sec
 			df->offset += df->f[ind]->size;
 		}
 	}
+
+	free(types);
 }
