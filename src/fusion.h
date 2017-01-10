@@ -71,6 +71,14 @@ int find_index_in_name_table(char *haystack, char *needle, Elf32_Word size);
 int add_symbol_in_table(Symtab_Struct *st, Elf32_Sym *symtab);
 
 /**
+ * Met à jour le champ r_info des tables de réimplantations
+ *
+ * @param drel:   une structure de type Data_Rel initialisée
+ * @param newsec: un tableau de type Elf32_Section contenant les nouveaux index de sections
+ **/
+void update_relocations_info(Data_Rel *drel, Elf32_Section *newsec);
+
+/**
  * Trie une table des symboles
  *
  * @param st: une structure de type symbolTable
