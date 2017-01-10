@@ -31,11 +31,11 @@ char *get_symbol_name(Elf32_Sym **symtab, char *table, unsigned index) {
 }
 
 char *get_static_symbol_name(symbolTable *symTabFull, unsigned index) {
-	return get_symbol_name(symTabFull->symtab, symTabFull->symbolNameTable, index);
+	return get_symbol_name(symTabFull->symtab->tab, symTabFull->symtab->symbolNameTable, index);
 }
 
 char *get_dynamic_symbol_name(symbolTable *symTabFull, unsigned index) {
-	return get_symbol_name(symTabFull->dynsym, symTabFull->dynSymbolNameTable, index);
+	return get_symbol_name(symTabFull->dynsym->tab, symTabFull->dynsym->symbolNameTable, index);
 }
 
 Elf32_Sym **read_Elf32_Sym(int fd, Elf32_Shdr **shdr, int *nbSymbol, int sectionIndex) {
@@ -62,24 +62,67 @@ Elf32_Sym **read_Elf32_Sym(int fd, Elf32_Shdr **shdr, int *nbSymbol, int section
 	return symtab;
 }
 
+Symtab_Struct *read_symtab_struct(int fd, Section_Table *secTab, int shType) {
+	int tmpSymtabIndex = -1,
+		tmpStrtabIndex = -1;
+
+	Symtab_Struct *s;
+	s = malloc(sizeof(Symtab_Struct));
+
+	// Init
+	s->strIndex = -1;
+	s->nbSymbol = 0;
+	s->tab = NULL;
+	s->name = NULL;
+	s->symbolNameTable = NULL;
+
+	tmpSymtabIndex = get_section_index(secTab, shType);
+	if (tmpSymtabIndex != -1) {
+		s->tab = read_Elf32_Sym(fd,secTab->shdr, &s->nbSymbol, tmpSymtabIndex);
+		if (s->tab != NULL) {
+			tmpStrtabIndex = secTab->shdr[tmpSymtabIndex]->sh_link;
+			s->strIndex = tmpStrtabIndex;
+			s->symbolNameTable = get_name_table(fd, tmpStrtabIndex, secTab->shdr);
+			s->name = get_section_name(secTab,tmpSymtabIndex);
+		}
+	}
+	return s;
+}
+
+// TODO: symbolTable.c:93:14: error: static declaration of ‘read_symbolTable’ follows non-static declaration
+symbolTable *read_symbolTable(int fd, Section_Table *secTab) {
+	symbolTable *symTabToRead;
+	symTabToRead = malloc(sizeof(symbolTable));
+	// initialisation
+	symTabToRead->symtab = NULL;
+	symTabToRead->dynsym = NULL;
+
+	symTabToRead->dynsym = read_symtab_struct(fd, secTab, SHT_DYNSYM);
+	symTabToRead->symtab = read_symtab_struct(fd, secTab, SHT_SYMTAB);
+
+	return symTabToRead;
+}
+
+
+
 // Affichage
-void dump_symtab(int nbSymbol, Elf32_Sym **symtab, char *symbolNameTable, char *name) {
+void dump_symtab(Symtab_Struct *s) {
 	char *STT_VAL[]={"NOTYPE","OBJECT","FUNC","SECTION","FILE","COMMON","TLS"};
 	char *STB_VAL[]={"LOCAL","GLOBAL","WEAK"};
 
 	int i = 1;
 
-	printf("\n Table de symboles « %s » contient %i entrées:\n", name, nbSymbol);
+	printf("\n Table de symboles « %s » contient %i entrées:\n", s->name, s->nbSymbol);
 	printf("   Num:    Valeur Tail Type    Lien   Vis      Ndx Nom\n");
-	for (i = 0; i < nbSymbol; ++i) {
+	for (i = 0; i < s->nbSymbol; ++i) {
 		printf("%6d: ", i);
-		printf("%08x ", symtab[i]->st_value);
-		printf("%5d ", symtab[i]->st_size);
-		printf("%-7s ", STT_VAL[ELF32_ST_TYPE(symtab[i]->st_info)]);
-		printf("%-6s ", STB_VAL[ELF32_ST_BIND(symtab[i]->st_info)]);
+		printf("%08x ", s->tab[i]->st_value);
+		printf("%5d ", s->tab[i]->st_size);
+		printf("%-7s ", STT_VAL[ELF32_ST_TYPE(s->tab[i]->st_info)]);
+		printf("%-6s ", STB_VAL[ELF32_ST_BIND(s->tab[i]->st_info)]);
 		printf("DEFAULT  "); // TODO: Gerer les differentes possibilités (DEFAULT,HIDDEN,PROTECTED)
 
-		switch(symtab[i]->st_shndx) {
+		switch(s->tab[i]->st_shndx) {
 			case SHN_UNDEF:
 				printf("UND ");
 				break;
@@ -88,73 +131,34 @@ void dump_symtab(int nbSymbol, Elf32_Sym **symtab, char *symbolNameTable, char *
 				break;
 
 			default:
-				printf("%3i ", symtab[i]->st_shndx);
+				printf("%3i ", s->tab[i]->st_shndx);
 		}
-		printf("%-10s ", get_symbol_name(symtab,symbolNameTable,i));
+		printf("%-10s ", get_symbol_name(s->tab,s->symbolNameTable,i));
 		printf("\n");
 	}
 }
 
-symbolTable *read_symbolTable(int fd, Section_Table *secTab) {
-	int tmpSymtabIndex = -1,
-		tmpStrtabIndex = -1;
-
-	symbolTable *symTabToRead;
-
-	symTabToRead = malloc(sizeof(symbolTable));
-	// initialisation
-	symTabToRead->nbSymbol = 0;
-	symTabToRead->nbDynSymbol = 0;
-	symTabToRead->symtabIndex = -1;
-	symTabToRead->dynsymIndex = -1;
-	symTabToRead->symtab = NULL;
-	symTabToRead->dynsym = NULL;
-	symTabToRead->symbolNameTable = NULL;
-	symTabToRead->dynSymbolNameTable = NULL;
-
-	// SHT_DYNSYM
-	// TODO: (Gaetan) Fatoriser code
-	tmpSymtabIndex = get_section_index(secTab, SHT_DYNSYM);
-	if (tmpSymtabIndex != -1) {
-		symTabToRead->dynsym = read_Elf32_Sym(fd, secTab->shdr, &symTabToRead->nbDynSymbol, tmpSymtabIndex);
-		if (symTabToRead->dynsym != NULL) {
-			tmpStrtabIndex = secTab->shdr[tmpSymtabIndex]->sh_link;
-			symTabToRead->dynsymIndex = tmpStrtabIndex;
-			symTabToRead->dynSymbolNameTable = get_name_table(fd,tmpStrtabIndex,secTab->shdr);
-			symTabToRead->dynTableName = get_section_name(secTab,tmpSymtabIndex);
-		}
+void displ_symbolTable(symbolTable *s) {
+	if (s->dynsym->nbSymbol > 0) {
+		dump_symtab(s->dynsym);
 	}
-	tmpSymtabIndex = get_section_index(secTab, SHT_SYMTAB);
-	if (tmpSymtabIndex != -1) {
-		symTabToRead->symtab = read_Elf32_Sym(fd, secTab->shdr, &symTabToRead->nbSymbol, tmpSymtabIndex);
-		if (symTabToRead->symtab != NULL) {
-			tmpStrtabIndex = secTab->shdr[tmpSymtabIndex]->sh_link;
-			symTabToRead->symtabIndex = tmpStrtabIndex;
-			symTabToRead->symbolNameTable = get_name_table(fd,tmpStrtabIndex,secTab->shdr);
-			symTabToRead->symTableName = get_section_name(secTab,tmpSymtabIndex);
-		}
-	}
-	return symTabToRead;
-}
-
-void displ_symbolTable(symbolTable *symTabToDisp) {
-	if (symTabToDisp->nbDynSymbol > 0) {
-		dump_symtab(symTabToDisp->nbDynSymbol, symTabToDisp->dynsym, symTabToDisp->dynSymbolNameTable, symTabToDisp->dynTableName);
-	}
-	if (symTabToDisp->nbSymbol > 0) {
-		dump_symtab(symTabToDisp->nbSymbol, symTabToDisp->symtab, symTabToDisp->symbolNameTable, symTabToDisp->symTableName);
+	if (s->symtab->nbSymbol > 0) {
+		dump_symtab(s->symtab);
 	}
 }
 
-void destroy_symbolTable(symbolTable *symTabFull)
-{
-	for(int i = 0; i < symTabFull->nbSymbol; i++)
-		free(symTabFull->symtab[i]);
-	free(symTabFull->symtab);
-	for(int i = 0; i < symTabFull->nbDynSymbol; i++)
-		free(symTabFull->dynsym[i]);
-	free(symTabFull->dynsym);
-	free(symTabFull->dynSymbolNameTable);
-	free(symTabFull->symbolNameTable);
-	free(symTabFull);
+
+void destroy_symtab_struct(Symtab_Struct *s) {
+	for(int i = 0; i < s->nbSymbol; i++)
+		free(s->tab[i]);
+	free(s->symbolNameTable);
+	free(s);
+}
+
+// Gestion Memoire
+void destroy_symbolTable(symbolTable *s) {
+	destroy_symtab_struct(s->symtab);
+	destroy_symtab_struct(s->dynsym);
+
+	free(s);
 }
