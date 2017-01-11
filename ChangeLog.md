@@ -32,3 +32,8 @@
 ## Mardi 10 janvier 2017
 * Construction des nouvelles tables de réimplantations
 * Améliorations diverses
+
+## Mercredi 11 janvier 2017
+* Corrections diverses
+* Support de la conversion Little/Big Endian automatique
+* Fusion et correction des tables de réimplantations (étape 8)
