@@ -46,7 +46,7 @@ char *get_symbol_name(Elf32_Sym **symtab, char *table, unsigned index);
  * @param index: le numéro d'une section.
  * @retourne une chaîne de caractères correspondant au nom du symbole statique.
  **/
-char *get_static_symbol_name(symbolTable *symTabFull, unsigned index);
+char *get_static_symbol_name(symbolTable *st, unsigned index);
 
 /**
  * Retourne le nom d'un symbole dynamique donné (par index)
@@ -55,7 +55,7 @@ char *get_static_symbol_name(symbolTable *symTabFull, unsigned index);
  * @param index: le numéro d'une section.
  * @retourne une chaîne de caractères correspondant au nom du symbole dynamique.
  **/
-char *get_dynamic_symbol_name(symbolTable *symTabFull, unsigned index);
+char *get_dynamic_symbol_name(symbolTable *st, unsigned index);
 
 /**
  * Lis la table des symboles d'un fichiers ELF 32 bits,
@@ -101,7 +101,7 @@ void dump_symtab(Symtab_Struct *s);
  *
  * @param symTabToDisp: un pointeur vers une structure symbolTable contenant les informations à afficher.
  */
-void displ_symbolTable(symbolTable *s);
+void displ_symbolTable(symbolTable *st);
 
 
 /**
@@ -116,7 +116,7 @@ void destroy_symtab_struct(Symtab_Struct *s);
  *
  * @param s: une structure de type symbolTable initialisée
  **/
-void destroy_symbolTable(symbolTable *s);
+void destroy_symbolTable(symbolTable *st);
 
 
 #endif
