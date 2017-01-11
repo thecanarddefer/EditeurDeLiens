@@ -174,7 +174,26 @@ int main(int argc, char *argv[])
 			{
 				drel1->rel[j][ind] = malloc(sizeof(Elf32_Rel));
 				memcpy(drel1->rel[j][ind], drel2->rel[i][k], sizeof(Elf32_Rel));
-				//TODO: Mise à jour de r_offset
+				drel1->rel[j][ind]->r_offset += secTab1->shdr[  secTab1->shdr[ drel1->i_rel[j] ]->sh_info  ]->sh_size;
+				Elf32_Sword addend;
+				lseek(fd2, secTab2->shdr[ drel2->i_rel[i] ]->sh_offset + drel2->rel[i][k]->r_offset, SEEK_SET);
+				read(fd2, &addend, sizeof(Elf32_Sword));
+				switch(ELF32_R_TYPE(drel2->rel[i][k]->r_info))
+				{
+					case R_ARM_ABS32_NOI:
+					case R_ARM_ABS32:
+					case R_ARM_ABS16:
+					case R_ARM_ABS12:
+					case R_ARM_ABS8:
+						addend += df->f[    df->newsec2[  secTab2->shdr[ drel2->i_rel[i] ]->sh_link  ]    ]->ptr_shdr1->sh_size;
+						break;
+					case R_ARM_JUMP24:
+					case R_ARM_CALL:
+						addend += (df->f[    df->newsec2[  secTab2->shdr[ drel2->i_rel[i] ]->sh_link  ]    ]->ptr_shdr1->sh_size >> 2);
+						break;
+					default:
+						fprintf(stderr, "ATTENTION : le type de réimplémentation %i n'est pas pris en charge !\n", ELF32_R_TYPE(drel2->rel[i][k]->r_info));
+				}
 				ind++;
 			}
 		}
