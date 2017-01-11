@@ -30,12 +30,12 @@ char *get_symbol_name(Elf32_Sym **symtab, char *table, unsigned index) {
 	return &(table[symtab[index]->st_name]);
 }
 
-char *get_static_symbol_name(symbolTable *symTabFull, unsigned index) {
-	return get_symbol_name(symTabFull->symtab->tab, symTabFull->symtab->symbolNameTable, index);
+char *get_static_symbol_name(symbolTable *st, unsigned index) {
+	return get_symbol_name(st->symtab->tab, st->symtab->symbolNameTable, index);
 }
 
-char *get_dynamic_symbol_name(symbolTable *symTabFull, unsigned index) {
-	return get_symbol_name(symTabFull->dynsym->tab, symTabFull->dynsym->symbolNameTable, index);
+char *get_dynamic_symbol_name(symbolTable *st, unsigned index) {
+	return get_symbol_name(st->dynsym->tab, st->dynsym->symbolNameTable, index);
 }
 
 Elf32_Sym **read_Elf32_Sym(int fd, Elf32_Shdr **shdr, int *nbSymbol, int sectionIndex) {
@@ -138,11 +138,11 @@ void dump_symtab(Symtab_Struct *s) {
 	}
 }
 
-void displ_symbolTable(symbolTable *s) {
-	if (s->dynsym->nbSymbol > 0) {
+void displ_symbolTable(symbolTable *st) {
+	if (st->dynsym->nbSymbol > 0) {
 		dump_symtab(s->dynsym);
 	}
-	if (s->symtab->nbSymbol > 0) {
+	if (st->symtab->nbSymbol > 0) {
 		dump_symtab(s->symtab);
 	}
 }
@@ -157,9 +157,9 @@ void destroy_symtab_struct(Symtab_Struct *s) {
 }
 
 // Gestion Memoire
-void destroy_symbolTable(symbolTable *s) {
-	destroy_symtab_struct(s->symtab);
-	destroy_symtab_struct(s->dynsym);
+void destroy_symbolTable(symbolTable *st) {
+	destroy_symtab_struct(st->symtab);
+	destroy_symtab_struct(st->dynsym);
 
-	free(s);
+	free(st);
 }
