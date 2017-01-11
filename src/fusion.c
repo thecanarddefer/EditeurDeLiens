@@ -126,8 +126,7 @@ int main(int argc, char *argv[])
 				update_section_index_in_symbol(st_out->tab[ind], df->newsec2, df->nb_sections);
 
 				/* On met à jour la valeur du nouveau symbole */
-				for(j = 0; (j < secTab1->nb_sections) && strcmp(get_section_name(secTab1, j),
-					get_section_name(secTab2, st2->symtab->tab[i]->st_shndx)); j++);
+				for(j = 0; (j < secTab1->nb_sections) && df->newsec2[ st2->symtab->tab[i]->st_shndx ] != df->newsec1[j]; j++);
 				if(j < secTab1->nb_sections)
 					st_out->tab[ind]->st_value += secTab1->shdr[j]->sh_size;
 			}
@@ -135,12 +134,9 @@ int main(int argc, char *argv[])
 		else
 		{
 			j = secTab1->nb_sections;
+			/* On cherche s'il s'agit d'un symbole de section et qu'il n'est pas déjà défini */
 			if((ELF32_ST_BIND(st2->symtab->tab[i]->st_info) == STB_LOCAL) && st2->symtab->tab[i]->st_shndx < secTab2->nb_sections)
-			{
-				/* On cherche s'il s'agit d'un symbole de section et qu'il n'est pas déjà défini */
-				for(j = 0; (j < secTab1->nb_sections) && strcmp(get_section_name(secTab1, j),
-					get_section_name(secTab2, st2->symtab->tab[i]->st_shndx)); j++);
-			}
+				for(j = 0; (j < secTab1->nb_sections) && df->newsec2[ st2->symtab->tab[i]->st_shndx ] != df->newsec1[j]; j++);
 
 			if(j == secTab1->nb_sections)
 			{
