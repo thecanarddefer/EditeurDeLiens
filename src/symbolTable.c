@@ -112,7 +112,7 @@ void dump_symtab(Symtab_Struct *s) {
 
 	int i = 1;
 
-	printf("\n Table de symboles « %s » contient %i entrées:\n", s->name, s->nbSymbol);
+	printf("\nTable de symboles « %s » contient %i entrées :\n", s->name, s->nbSymbol);
 	printf("   Num:    Valeur Tail Type    Lien   Vis      Ndx Nom\n");
 	for (i = 0; i < s->nbSymbol; ++i) {
 		printf("%6d: ", i);

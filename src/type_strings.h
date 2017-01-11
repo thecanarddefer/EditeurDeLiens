@@ -41,12 +41,12 @@ const Types elfosabi[] =
 
 const Types et[] =
 {
-	{ ET_NONE,        "Aucun"                },
-	{ ET_REL,         "REL (repositionable)" },
-	{ ET_EXEC,        "EXEC (exécutable)"    },
-	{ ET_DYN,         "DYN (objet partagé)"  },
-	{ ET_CORE,        "CORE (fichier Core)"  },
-	{ UNKNOWN,        "Inconnu"              }
+	{ ET_NONE,        "Aucun"                        },
+	{ ET_REL,         "REL (Fichier de réadressage)" },
+	{ ET_EXEC,        "EXEC (fichier exécutable)"    },
+	{ ET_DYN,         "DYN (fichier objet partagé)"  },
+	{ ET_CORE,        "CORE (fichier Core)"          },
+	{ UNKNOWN,        "Inconnu"                      }
 };
 
 const Types em[] =

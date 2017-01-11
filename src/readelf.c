@@ -185,30 +185,48 @@ static const char *get_type_string(const Types t[], Elf32_Word index)
 *                     Affichage de l’en-tête
 *****************************************************************/
 
+char *get_eflags_as_string(Elf32_Half machine, Elf32_Word flags)
+{
+	static char str[64] = "";
+
+	if(machine == EM_ARM)
+	{
+		if((EF_ARM_EABIMASK & flags) == EF_ARM_EABI_VER5)
+			strcat(str, "Version5 EABI");
+		if(flags & EF_ARM_ABI_FLOAT_SOFT)
+			strcat(str, ", soft-float ABI");
+		else if(flags & EF_ARM_ABI_FLOAT_HARD)
+			strcat(str, ", hard-float ABI");
+	}
+
+	return str;
+}
+
 void dump_header(Elf32_Ehdr *ehdr)
 {
-	printf("En-tête ELF :\n");
-	printf("%-11s", "Magique:");
+	printf("En-tête ELF:\n");
+	printf("  %-11s", "Magique:");
 	for(int i = 0; i < EI_NIDENT; i++)
 		printf("%02x ", ehdr->e_ident[i]);
 
-	printf("\n %-35s %s\n", "Classe:", get_type_string(elfclass, ehdr->e_ident[EI_CLASS]));
-	printf(" %-35s  %s\n", "Données:",  get_type_string(elfdata, ehdr->e_ident[EI_DATA]));
-	printf(" %-35s %i\n", "Version:",  ehdr->e_ident[EI_VERSION]);
-	printf(" %-35s %s\n", "OS/ABI:",   get_type_string(elfosabi, ehdr->e_ident[EI_OSABI]));
-	printf(" %-35s %s\n", "Type:",     get_type_string(et, ehdr->e_type));
-	printf(" %-35s %s\n", "Machine:",  get_type_string(em, ehdr->e_machine));
-	printf(" %-35s %#x\n", "Version:", ehdr->e_version);
-	printf(" %-35s  0x%x\n", "Adresse du point d'entrée:", ehdr->e_entry);
-	printf(" %-35s  %2i (octets dans le fichier)\n", "Début des en-têtes de programme:", ehdr->e_phoff);
-	printf(" %-35s %8i (octets dans le fichier)\n", "Début des en-têtes de section:", ehdr->e_shoff);
-	printf(" %-35s %#x\n", "Fanions:", ehdr->e_flags);
-	printf(" %-35s  %i (octets)\n","Taille de cet en-tête:", ehdr->e_ehsize);
-	printf(" %-35s  %i (octets)\n","Taille de l'en-tête du programme:", ehdr->e_phentsize);
-	printf(" %-35s  %i\n","Nombre d'en-tête du programme:", ehdr->e_phnum);
-	printf(" %-35s  %i (octets)\n","Taille des en-têtes de section:", ehdr->e_shentsize);
-	printf(" %-35s  %i\n","Nombre d'en-têtes de section:", ehdr->e_shnum);
-	printf(" %-35s  %i\n","Table d'indexes des chaînes d'en-tête de section:", ehdr->e_shstrndx);
+	printf("\n  %-35s%s\n", "Classe:", get_type_string(elfclass, ehdr->e_ident[EI_CLASS]));
+	printf("  %-35s %s\n", "Données:",  get_type_string(elfdata, ehdr->e_ident[EI_DATA]));
+	printf("  %-35s%i %s\n", "Version:",  ehdr->e_ident[EI_VERSION], (ehdr->e_ident[EI_VERSION] == EV_CURRENT) ? "(current)" : "");
+	printf("  %-35s%s\n", "OS/ABI:",   get_type_string(elfosabi, ehdr->e_ident[EI_OSABI]));
+	printf("  %-35s%i\n", "Version ABI:", ehdr->e_ident[EI_ABIVERSION]);
+	printf("  %-35s%s\n", "Type:",     get_type_string(et, ehdr->e_type));
+	printf("  %-35s%s\n", "Machine:",  get_type_string(em, ehdr->e_machine));
+	printf("  %-35s%#x\n", "Version:", ehdr->e_version);
+	printf("  %-35s 0x%x\n", "Adresse du point d'entrée:", ehdr->e_entry);
+	printf("  %-35s %2i (octets dans le fichier)\n", "Début des en-têtes de programme:", ehdr->e_phoff);
+	printf("  %-35s%8i (octets dans le fichier)\n", "Début des en-têtes de section:", ehdr->e_shoff);
+	printf("  %-35s%#x, %s\n", "Fanions:", ehdr->e_flags, get_eflags_as_string(ehdr->e_machine, ehdr->e_flags));
+	printf("  %-35s %i (octets)\n","Taille de cet en-tête:", ehdr->e_ehsize);
+	printf("  %-35s %i (octets)\n","Taille de l'en-tête du programme:", ehdr->e_phentsize);
+	printf("  %-35s %i\n","Nombre d'en-tête du programme:", ehdr->e_phnum);
+	printf("  %-35s %i (octets)\n","Taille des en-têtes de section:", ehdr->e_shentsize);
+	printf("  %-35s %i\n","Nombre d'en-têtes de section:", ehdr->e_shnum);
+	printf("  %-35s %i\n","Table d'indexes des chaînes d'en-tête de section:", ehdr->e_shstrndx);
 }
 
 
@@ -245,13 +263,13 @@ static char *flags_to_string(Elf32_Word flags)
 
 void dump_section_header(Section_Table *secTab, Elf32_Off offset)
 {
-	printf("Il y a %i en-têtes de section, débutant à l'adresse de décalage %#x :\n\n", secTab->nb_sections, offset);
+	printf("Il y a %i en-têtes de section, débutant à l'adresse de décalage %#x:\n\n", secTab->nb_sections, offset);
 	printf("En-têtes de section :\n");
-	printf("[%2s] %-18s %-14s %8s %6s %6s %2s %2s %2s %2s %2s\n",
-		"Nr", "Nom", "Type", "Adresse", "Déc.", "Taille", "ES", "Flg", "Lk", "Inf", "Al");
+	printf("  [%2s] %-18s %-14s  %-8s %6s %-6s %2s %2s %2s %2s %2s\n",
+		"Nr", "Nom", "Type", "Adr", "Décala.", "Taille", "ES", "Fan", "LN", "Inf", "Al");
 
 	for(int i = 0; i < secTab->nb_sections; i++)
-		printf("[%2i] %-18s %-14s %08x %06x %06x %02x %2s %2i %2i %2i\n", i,
+		printf("  [%2i] %-18s %-14s  %08x %06x %06x %02x  %2s %2i  %2i %2i\n", i,
 			get_section_name(secTab, i),
 			get_type_string(sht, secTab->shdr[i]->sh_type),
 			secTab->shdr[i]->sh_addr,
@@ -262,7 +280,7 @@ void dump_section_header(Section_Table *secTab, Elf32_Off offset)
 			secTab->shdr[i]->sh_link,
 			secTab->shdr[i]->sh_info,
 			secTab->shdr[i]->sh_addralign);
-	printf("\nListe des fanions :\n");
+	printf("Liste des fanions :\n");
 	printf("  W : écriture\n");
 	printf("  A : allocation\n");
 	printf("  X : exécution\n");
@@ -422,12 +440,12 @@ void dump_relocation_type(Elf32_Ehdr *ehdr, Section_Table *secTab, symbolTable *
 
 	for(int i = 0; i < nb_rel; i++)
 	{
-		printf("\nSection de relocalisation '%s' à l'adresse de décalage %#x contient %u entrées :\n",
+		printf("\nSection de réadressage '%s' à l'adresse de décalage %#x contient %u entrées:\n",
 			get_section_name(secTab, i_rel[i]), a_rel[i], e_rel[i]);
-		printf("%-8s  %-8s  %-23s  %-8s  %s%s\n", "Décalage", "Info", "Type", "Val.-sym", "Noms-symboles", is_rela ? "+ Addenda" : "");
+		printf(" %-8s   %-8s%-16s%-8s  %s%s\n", "Décalage", "Info", "Type", "Val.-sym", "Noms-symboles", is_rela ? "+ Addenda" : "");
 		for(int j = 0; j < e_rel[i]; j++)
 		{
-			printf("%08x  %08x  %-23s  %08x  %s",
+			printf("%08x  %08x %-16s  %08x   %s",
 				rel[i][j]->r_offset,
 				rel[i][j]->r_info,
 				relocation_type_to_string(ehdr->e_machine, ELF32_R_TYPE(rel[i][j]->r_info)),
