@@ -148,6 +148,7 @@ int main(int argc, char *argv[])
 				{
 					st_out->tab[ind]->st_name = symbsize;
 					st_out->symbolNameTable = realloc(st_out->symbolNameTable, symbsize + strlen(buff) + 1);
+					st_out->symbolNameTable[symbsize] = '\0';
 					strcat(&(st_out->symbolNameTable[symbsize]), buff);
 					symbsize += strlen(buff) + 1;
 				}
