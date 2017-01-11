@@ -151,6 +151,7 @@ void displ_symbolTable(symbolTable *s) {
 void destroy_symtab_struct(Symtab_Struct *s) {
 	for(int i = 0; i < s->nbSymbol; i++)
 		free(s->tab[i]);
+	free(s->tab);
 	free(s->symbolNameTable);
 	free(s);
 }
