@@ -23,69 +23,16 @@ typedef struct
 } Data_fusion;
 
 /**
- * Donne la correspondance des numéros de sections d'un fichier d'entrée avec
- * les numéros de section du fichier de sortie
+ * Ouvre les deux premiers fichiers passés en argument en lecture
+ * et le troisième en écriture
  *
- * @param fusion:      un descrpteur de fichier vers le fichier d'entrée
- * @param nb_sections: le nombre de sections dans le fichier de sortie
- * @param secTab:      une structure de type Section_Table initialisée
- * @retourne un tableau de type Elf32_Section contenant les nouveaux indices de sections
+ * @param argv:   la ligne des arguments
+ * @param fd_in1: premier fichier en entrée
+ * @param fd_in2: second fichier en entrée
+ * @param fd_out: fichier de sortie
+ * @retourne 0 en cas de succès
  **/
-Elf32_Section *find_new_section_index(Fusion **fusion, unsigned nb_sections, Section_Table *secTab);
-
-/**
- * Recopie une section PROGBITS dans un autre fichier
- *
- * PRÉ-CONDITION: le curseur de fd_out est placé au bon endroit
- * @param fd_in:  un descrpteur de fichier vers le fichier d'entrée
- * @param fd_out: un descrpteur de fichier vers le fichier de sortie
- * @param: size:  le nombre d'octets à recopier
- * @param offset: l'adresse à partir de laquelle lire dans le fichier d'entrée
- * @retourne 0 si la copie s'est bien déroulée
- **/
-int write_progbits_in_file(int fd_in, int fd_out, Elf32_Word size, Elf32_Off offset);
-
-/**
- * Met à jour l'index de section d'un symbole
- *
- * @param symbol:      un symbole de type Elf32_Sym à corriger
- * @param newsec:      un tableau de type Elf32_Section contenant les nouveaux index de sections
- * @param nb_sections: le nombre de sections dans le fichier de sortie
- **/
-void update_section_index_in_symbol(Elf32_Sym *symbol, Elf32_Section *newsec, unsigned nb_sections);
-
-/**
- * Calcule l'indice d'une sous-chaîne dans une chaîne
- *
- * @param haystack: la chaîne dans laquelle rechercher la sous-chaîne
- * @param needle:   la sous-chaîne
- * @param size:     la taille de haystack
- **/
-int find_index_in_name_table(char *haystack, char *needle, Elf32_Word size);
-
-/**
- * Ajoute un symbole à la table des symboles
- *
- * @param st:     une structure de type symbolTable
- * @param symtab: un symbole de type Elf32_Sym initialisé
- * @retourne l'indice où le nouveau symbole a été ajouté
- **/
-int add_symbol_in_table(Symtab_Struct *st, Elf32_Sym *symtab);
-
-/**
- * Met à jour le champ r_info des tables de réimplantations
- *
- * @param drel:   une structure de type Data_Rel initialisée
- * @param newsec: un tableau de type Elf32_Section contenant les nouveaux index de sections
- **/
-void update_relocations_info(Data_Rel *drel, Elf32_Section *newsec);
-
-/**
- * Trie une table des symboles
- *
- * @param st: une structure de type symbolTable
- **/
-void sort_new_symbol_table(Symtab_Struct *st);
+static int open_files(char *argv[], int *fd_in1, int *fd_in2, int *fd_out);
 
 /**
  * Rassemble les sections des types passés en paramètre
@@ -96,9 +43,113 @@ void sort_new_symbol_table(Symtab_Struct *st);
  * @param nb_types: le nombre de types à passer en argument
  * @param ...:      les types de section à placer dans df
  **/
-void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Table *secTab2, int nb_types, ...);
+static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Table *secTab2, int nb_types, ...);
 
-void destroy_data_fusion(Data_fusion *df);
+/**
+ * Donne la correspondance des numéros de sections d'un fichier d'entrée avec
+ * les numéros de section du fichier de sortie
+ *
+ * @param df:     une structure de type Data_fusion
+ * @param secTab: une structure de type Section_Table initialisée
+ * @retourne un tableau de type Elf32_Section contenant les nouveaux indices de sections
+ **/
+static Elf32_Section *find_new_section_index(Data_fusion *df, Section_Table *secTab);
+
+/**
+ * Met à jour l'index de section d'un symbole
+ *
+ * @param symbol:      un symbole de type Elf32_Sym à corriger
+ * @param newsec:      un tableau de type Elf32_Section contenant les nouveaux index de sections
+ * @param nb_sections: le nombre de sections dans le fichier de sortie
+ **/
+static void update_section_index_in_symbol(Elf32_Sym *symbol, Elf32_Section *newsec, unsigned nb_sections);
+
+/**
+ * Calcule l'indice d'une sous-chaîne dans une chaîne
+ *
+ * @param haystack: la chaîne dans laquelle rechercher la sous-chaîne
+ * @param needle:   la sous-chaîne
+ * @param size:     la taille de haystack
+ * @retourne l'indice une valeur >= 0 en cas de succès, -1 sinon
+ **/
+static int find_index_in_name_table(char *haystack, char *needle, Elf32_Word size);
+
+/**
+ * Ajoute un symbole à la table des symboles
+ *
+ * @param st:     une structure de type symbolTable
+ * @param symtab: un symbole de type Elf32_Sym initialisé
+ * @retourne l'indice où le nouveau symbole a été ajouté
+ **/
+static int add_symbol_in_table(Symtab_Struct *st, Elf32_Sym *symtab);
+
+/**
+ * Fusionne deux tables des symboles tout en les corrigeant
+ *
+ * @param df:      une structure de type Data_fusion initialisée
+ * @param secTab1: une structure de type Section_Table initialisée correspondant au premier fichier
+ * @param secTab2: une structure de type Section_Table initialisée correspondant au second fichier
+ * @param st1:     une structure de type symbolTable initialisée correspondant au premier fichier
+ * @param st2:     une structure de type symbolTable initialisée correspondant au second fichier
+ * @param st_out:  une structure de type symbolTable initialisée correspondant au fichier à créer
+ * @retourne 0 en cas de succès
+ **/
+static int merge_and_fix_symbols(Data_fusion *df, Section_Table *secTab1, Section_Table *secTab2, symbolTable *st1, symbolTable *st2, Symtab_Struct *st_out);
+
+/**
+ * Met à jour le champ r_info des tables de réimplantations
+ *
+ * @param drel:   une structure de type Data_Rel initialisée
+ * @param newsec: un tableau de type Elf32_Section contenant les nouveaux index de sections
+ **/
+static void update_relocations_info(Data_Rel *drel, Elf32_Section *newsec);
+
+/**
+ * Fusionne deux tables de réimplantations tout en corrigeant les symboles
+ *
+ * @param df:      une structure de type Data_fusion initialisée
+ * @param fd2:     le descripteur de fichier du second fichier
+ * @param secTab1: une structure de type Section_Table initialisée correspondant au premier fichier
+ * @param secTab2: une structure de type Section_Table initialisée correspondant au second fichier
+ * @param drel1:   une structure de type Data_Rel initialisée  correspondant au premier fichier
+ * @param drel1:   une structure de type Data_Rel initialisée  correspondant au second fichier
+ **/
+static void merge_and_fix_relocations(Data_fusion *df, int fd2, Section_Table *secTab1, Section_Table *secTab2, Data_Rel *drel1, Data_Rel *drel2);
+
+/**
+ * Trie une table des symboles
+ *
+ * @param st: une structure de type symbolTable
+ **/
+static void sort_new_symbol_table(Symtab_Struct *st);
+
+/**
+ * Concatène des sections dans le fichier de sortie
+ *
+ * @param df:     une structure de type Data_fusion initialisée
+ * @param fd_in1: premier fichier en entrée
+ * @param fd_in2: second fichier en entrée
+ * @param fd_out: fichier de sortie
+ **/
+static void merge_and_write_sections_in_file(Data_fusion *df, int fd1, int fd2, int fd_out);
+
+/**
+ * Recopie une section depuis un fichier vers un autre fichier
+ *
+ * PRÉ-CONDITION: le curseur de fd_out est placé au bon endroit
+ * @param fd_in:  un descrpteur de fichier vers le fichier d'entrée
+ * @param fd_out: un descrpteur de fichier vers le fichier de sortie
+ * @param shdr:   une structure de type Elf32_Shdr initialisée
+ * @retourne 0 si la copie s'est bien déroulée
+ **/
+static int write_section_in_file(int fd_in, int fd_out, Elf32_Shdr *shdr);
+
+/**
+ * Libère la mémoire allouée pour une structure de type Data_fusion
+ *
+ * @param df: une structure de type Data_fusion initialisée
+ **/
+static void destroy_data_fusion(Data_fusion *df);
 
 
 #endif
