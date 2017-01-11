@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <elf.h>
 #include "elf_common.h"
+#include "util.h"
 
 
 /**************************** ÉTAPE 1 ****************************
@@ -24,6 +25,11 @@ Elf32_Ehdr *read_elf_header(int fd)
 		fprintf(stderr, "Le fichier n'est pas de type ELF32.\n");
 		exit(3);
 	}
+
+	if(ehdr->e_ident[EI_DATA] == ELFDATA2LSB)
+		elf32_is_big = 0;
+	else if(ehdr->e_ident[EI_DATA] == ELFDATA2MSB)
+		elf32_is_big = 1;
 
 	read(fd, &ehdr->e_type,      sizeof(ehdr->e_type));
 	read(fd, &ehdr->e_machine,   sizeof(ehdr->e_machine));

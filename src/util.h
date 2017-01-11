@@ -23,11 +23,17 @@ Contact: Guillaume.Huard@imag.fr
 #ifndef __UTIL_H__
 #define __UTIL_H__
 
+#include <unistd.h>
+
 int is_big_endian(void);
 
 #define reverse_2(x) ((((x)&0xFF)<<8)|(((x)>>8)&0xFF))
 #define reverse_4(x) ((((x)&0xFF)<<24)|((((x)>>8)&0xFF)<<16)|\
 						((((x)>>16)&0xFF)<<8)|(((x)>>24)&0xFF))
+
+extern int elf32_is_big;
+
+ssize_t __real_read(int fildes, void *buf, size_t nbyte);
 
 #define min(x,y) ((x)<(y)?(x):(y))
 #endif

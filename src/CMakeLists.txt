@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.4)
 project(src LANGUAGES C)
 
+set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-wrap,read")
 
 # 'elf_common' library
 add_library(elf_common
