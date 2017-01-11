@@ -27,6 +27,8 @@ Contact: Guillaume.Huard@imag.fr
 
 int is_big_endian(void);
 
+#define BOLD  "\x1b[1m"
+#define RESET "\x1b[0m"
 #define reverse_2(x) ((((x)&0xFF)<<8)|(((x)>>8)&0xFF))
 #define reverse_4(x) ((((x)&0xFF)<<24)|((((x)>>8)&0xFF)<<16)|\
 						((((x)>>16)&0xFF)<<8)|(((x)>>24)&0xFF))
@@ -34,6 +36,8 @@ int is_big_endian(void);
 extern int elf32_is_big;
 
 ssize_t __real_read(int fildes, void *buf, size_t nbyte);
+
+int print_debug(const char *format, ...);
 
 #define min(x,y) ((x)<(y)?(x):(y))
 #endif

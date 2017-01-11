@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include "elf_common.h"
 #include "symbolTable.h"
+#include "util.h"
 #include "fusion.h"
 
 
@@ -45,27 +46,39 @@ int main(int argc, char *argv[])
 	gather_sections(df, secTab1, secTab2, 1, SHT_NULL);
 
 	/* On crée le fichier de sortie qui contient les sections PROGBITS fusionnées */
+	print_debug(BOLD "==> Étape de fusion des sections PROGBITS\n" RESET);
 	gather_sections(df, secTab1, secTab2, 2, SHT_PROGBITS, SHT_NOBITS);
 	lseek(fd_out, ehdr1->e_ehsize, SEEK_SET);
 	merge_and_write_sections_in_file(df, fd_in1, fd_in2, fd_out);
 
-	/* On calcule les nouveaux indices de section */
+	/* On recherche les sections de type REL */
+	print_debug(BOLD "\n==> Étape de récupération des sections REL(A)\n" RESET);
 	gather_sections(df, secTab1, secTab2, 2, SHT_REL, SHT_RELA);
+
+	/* On calcule les nouveaux indices de section */
+	print_debug(BOLD "\n==> Étape de création des tables de correspondance\n" RESET);
 	df->newsec1 = find_new_section_index(df, secTab1);
 	df->newsec2 = find_new_section_index(df, secTab2);
+	print_debug(BOLD "\n==> Affichage de la fusion des sections\n" RESET);
+	for(int i = 0; i < df->nb_sections; i++)
+		print_debug("Section n°%2i : %s\n", i, df->f[i]->section);
 
 	/* On met à jour l'indice de section des symboles du premier fichier */
+	print_debug(BOLD "\n==> Étape de mise à jour des indices de section du premier fichier\n" RESET);
 	for(int i = 1; i < st_out->nbSymbol; i++)
 		update_section_index_in_symbol(st_out->tab[i], df->newsec1, df->nb_sections);
 
 	/* On fusionne et corrige les symboles */
+	print_debug(BOLD "\n==> Étape de fusion des tables de symboles\n" RESET);
 	err = merge_and_fix_symbols(df, secTab1, secTab2, st1, st2, st_out);
 	if(err)
 		goto clean;
 	sort_new_symbol_table(st_out);
-	dump_symtab(st_out); // Pour debug
+	print_debug(BOLD "\n==> Affichage de la fusion des symboles\n" RESET);
+	dump_symtab(st_out);
 
 	/* On met à jour le champ r_info des symboles des tables de réimplantations */
+	print_debug(BOLD "\n==> Étape de fusion des tables de réimplantations\n" RESET);
 	update_relocations_info(drel1, df->newsec1);
 	update_relocations_info(drel2, df->newsec2);
 	merge_and_fix_relocations(df, fd_in2, secTab1, secTab2, drel1, drel2);
@@ -134,17 +147,19 @@ static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Tab
 		df->f[ind] = malloc(sizeof(Fusion));
 		df->f[ind]->ptr_shdr1 = secTab1->shdr[i];
 
-		if(j != secTab2->nb_sections)
+		if(j == secTab2->nb_sections)
 		{
-			/* La section est présente dans les deux fichiers */
-			df->f[ind]->size = secTab1->shdr[i]->sh_size + secTab2->shdr[j]->sh_size;
-			df->f[ind]->ptr_shdr2 = secTab2->shdr[j];
+			/* La section est présente uniquement dans le premier fichier */
+			print_debug("Ajout de la section %i '%s' (-> premier fichier uniquement)\n", i, get_section_name(secTab1, i));
+			df->f[ind]->size = secTab1->shdr[i]->sh_size;
+			df->f[ind]->ptr_shdr2 = NULL;
 		}
 		else
 		{
-			/* La section est présente uniquement dans le premier fichier */
-			df->f[ind]->size = secTab1->shdr[i]->sh_size;
-			df->f[ind]->ptr_shdr2 = NULL;
+			/* La section est présente dans les deux fichiers */
+			print_debug("Ajout de la section %i '%s' (-> deux fichiers)\n", i, get_section_name(secTab2, j));
+			df->f[ind]->size = secTab1->shdr[i]->sh_size + secTab2->shdr[j]->sh_size;
+			df->f[ind]->ptr_shdr2 = secTab2->shdr[j];
 		}
 
 		df->f[ind]->offset = df->offset;
@@ -164,6 +179,7 @@ static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Tab
 
 		if(j == secTab1->nb_sections)
 		{
+			print_debug("Ajout de la section %i '%s' (-> second fichier uniquement)\n", i, get_section_name(secTab2, i));
 			df->nb_sections++;
 			ind = df->nb_sections - 1;
 			df->f = realloc(df->f, sizeof(Fusion*) * df->nb_sections);
@@ -189,8 +205,9 @@ static Elf32_Section *find_new_section_index(Data_fusion *df, Section_Table *sec
 	{
 		for(j = 0; (j < df->nb_sections) && strcmp(df->f[j]->section, get_section_name(secTab, i)); j++);
 		newsec[i] = (j < df->nb_sections) ? j : 0;
+		print_debug("Ancienne section %i <==> %i nouvelle section\n", i, j);
 		if(j == df->nb_sections)
-			fprintf(stderr, "ATTENTION : la section n°%i « %s » n'apparaît pas dans la nouvelle table des sections !\n", i, get_section_name(secTab, i));
+			fprintf(stderr, RESET "ATTENTION : la section n°%i « %s » n'apparaît pas dans la nouvelle table des sections !\n", i, get_section_name(secTab, i));
 	}
 
 	return newsec;
@@ -201,7 +218,8 @@ static void update_section_index_in_symbol(Elf32_Sym *symbol, Elf32_Section *new
 	if((symbol->st_shndx >= nb_sections) || (symbol->st_shndx == SHN_UNDEF) || (symbol->st_shndx == SHN_ABS))
 		return;
 	if(newsec[symbol->st_shndx] == 0)
-		fprintf(stderr, "ATTENTION : le symbole qui pointait vers la section %i ne pointe plus vers de section !\n", symbol->st_shndx);
+		fprintf(stderr, RESET "ATTENTION : le symbole qui pointait vers la section %i ne pointe plus vers de section !\n", symbol->st_shndx);
+	print_debug("Le symbole qui pointait vers l'indice %i pointe dorénavant vers l'indice %i\n", symbol->st_shndx, newsec[symbol->st_shndx]);
 	symbol->st_shndx = newsec[symbol->st_shndx];
 }
 
@@ -255,6 +273,7 @@ static int merge_and_fix_symbols(Data_fusion *df, Section_Table *secTab1, Sectio
 			else if(is_global_st_out && is_global_st2 && (st_out->tab[ind]->st_shndx == SHN_UNDEF) && (st2->symtab->tab[i]->st_shndx != SHN_UNDEF))
 			{
 				/* On remplace le symbole global indéfini par le défini, sans toucher à st_name */
+				print_debug("Remplace le symbole global %i '%s' par sa version définie\n", i, get_static_symbol_name(st2, i));
 				st_out->tab[ind]->st_value = st2->symtab->tab[i]->st_value;
 				st_out->tab[ind]->st_size  = st2->symtab->tab[i]->st_size;
 				st_out->tab[ind]->st_info  = st2->symtab->tab[i]->st_info;
@@ -265,6 +284,7 @@ static int merge_and_fix_symbols(Data_fusion *df, Section_Table *secTab1, Sectio
 			else if(!is_global_st_out && !is_global_st2)
 			{
 				/* Un autre symbole local a le même nom, on ajoute le symbole à la table des symboles uniquement */
+				print_debug("Ajout du symbole local %i '%s' dans la table des symboles uniquement\n", i, get_static_symbol_name(st2, i));
 				ind = add_symbol_in_table(st_out, st2->symtab->tab[i]);
 				st_out->tab[ind]->st_name = shndx;
 				update_section_index_in_symbol(st_out->tab[ind], df->newsec2, df->nb_sections);
@@ -285,6 +305,7 @@ static int merge_and_fix_symbols(Data_fusion *df, Section_Table *secTab1, Sectio
 			if(j == secTab1->nb_sections)
 			{
 				/* On ajoute le symbole à la nouvelle table */
+				print_debug("Ajout du symbole %i '%s' à la table des symboles\n", i, get_static_symbol_name(st2, i));
 				ind = add_symbol_in_table(st_out, st2->symtab->tab[i]);
 				update_section_index_in_symbol(st_out->tab[ind], df->newsec2, df->nb_sections);
 
@@ -321,6 +342,7 @@ static void merge_and_fix_relocations(Data_fusion *df, int fd2, Section_Table *s
 		if(j < drel1->nb_rel)
 		{
 			/* La section REL était déjà présente dans le premier fichier, on ajoute à la suite celle-ci */
+			print_debug("Concatène la section REL %i '%s' avec celle du premier fichier\n", i, get_section_name(secTab2, drel2->i_rel[i]));
 			ind = drel1->e_rel[j];
 			drel1->e_rel[j] += drel2->e_rel[i];
 			drel1->rel[j]    = realloc(drel1->rel[j], sizeof(Elf32_Rel*) * drel1->e_rel[j]);
@@ -354,6 +376,7 @@ static void merge_and_fix_relocations(Data_fusion *df, int fd2, Section_Table *s
 		else
 		{
 			/* La section est absente du premier fichier, on l'ajoute telle quelle */
+			print_debug("Ajout de la section REL %i '%s' à la table de réimplantations\n", i, get_section_name(secTab2, drel2->i_rel[i]));
 			ind = drel1->nb_rel;
 			drel1->nb_rel++;
 			drel1->e_rel      = realloc(drel1->e_rel, sizeof(unsigned) * drel1->nb_rel);

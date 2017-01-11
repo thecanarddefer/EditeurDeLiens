@@ -22,6 +22,9 @@ Contact: Guillaume.Huard@imag.fr
 */
 
 #include "util.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <unistd.h>
 
@@ -54,4 +57,16 @@ ssize_t __wrap_read(int fildes, void *buf, size_t nbyte)
         }
 
         return r;
+}
+
+int print_debug(const char *format, ...)
+{
+	if(getenv("DEBUG_FUSION") == NULL)
+		return 0;
+
+	va_list aptr;
+	va_start(aptr, format);
+	int ret = vprintf(format, aptr);
+	va_end(aptr);
+	return ret;
 }
