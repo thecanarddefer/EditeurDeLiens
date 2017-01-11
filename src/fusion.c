@@ -80,12 +80,12 @@ int main(int argc, char *argv[])
 	}
 
 	/* On calcule les nouveaux indices de section */
-	Elf32_Section *newsec1 = find_new_section_index(df->f, df->nb_sections, secTab1);
-	Elf32_Section *newsec2 = find_new_section_index(df->f, df->nb_sections, secTab2);
+	df->newsec1 = find_new_section_index(df->f, df->nb_sections, secTab1);
+	df->newsec2 = find_new_section_index(df->f, df->nb_sections, secTab2);
 
 	/* On met à jour l'indice de section des symboles du premier fichier (à ce stade là, st_out = st1) */
 	for(int i = 1; i < st_out->nbSymbol; i++)
-		update_section_index_in_symbol(st_out->tab[i], newsec1, df->nb_sections);
+		update_section_index_in_symbol(st_out->tab[i], df->newsec1, df->nb_sections);
 
 	for(int i = 1; i < st2->symtab->nbSymbol; i++)
 	{
@@ -116,14 +116,14 @@ int main(int argc, char *argv[])
 				st_out->tab[ind]->st_info  = st2->symtab->tab[i]->st_info;
 				st_out->tab[ind]->st_other = st2->symtab->tab[i]->st_other;
 				st_out->tab[ind]->st_shndx = st2->symtab->tab[i]->st_shndx;
-				update_section_index_in_symbol(st_out->tab[ind], newsec2, df->nb_sections);
+				update_section_index_in_symbol(st_out->tab[ind], df->newsec2, df->nb_sections);
 			}
 			else if(!is_global_st_out && !is_global_st2)
 			{
 				/* Un autre symbole local a le même nom, on ajoute le symbole à la table des symboles uniquement */
 				ind = add_symbol_in_table(st_out, st2->symtab->tab[i]);
 				st_out->tab[ind]->st_name = shndx;
-				update_section_index_in_symbol(st_out->tab[ind], newsec2, df->nb_sections);
+				update_section_index_in_symbol(st_out->tab[ind], df->newsec2, df->nb_sections);
 
 				/* On met à jour la valeur du nouveau symbole */
 				for(j = 0; (j < secTab1->nb_sections) && strcmp(get_section_name(secTab1, j),
@@ -146,7 +146,7 @@ int main(int argc, char *argv[])
 			{
 				/* On ajoute le symbole à la nouvelle table */
 				ind = add_symbol_in_table(st_out, st2->symtab->tab[i]);
-				update_section_index_in_symbol(st_out->tab[ind], newsec2, df->nb_sections);
+				update_section_index_in_symbol(st_out->tab[ind], df->newsec2, df->nb_sections);
 
 				if(strlen(buff) > 0)
 				{
@@ -160,13 +160,13 @@ int main(int argc, char *argv[])
 	}
 
 	/* On met à jour le champ r_info des symboles des tables de réimplantations */
-	update_relocations_info(drel1, newsec1);
-	update_relocations_info(drel2, newsec2);
+	update_relocations_info(drel1, df->newsec1);
+	update_relocations_info(drel2, df->newsec2);
 
 	/* On concatène les tables de réimplantations de drel2 dans drel1 */
 	for(int i = 0; i < drel2->nb_rel; i++)
 	{
-		for(j = 0; (j < drel1->nb_rel) && newsec2[ drel2->i_rel[i] ] != newsec1[ drel1->i_rel[j] ]; j++);
+		for(j = 0; (j < drel1->nb_rel) && df->newsec2[ drel2->i_rel[i] ] != df->newsec1[ drel1->i_rel[j] ]; j++);
 		if(j < drel1->nb_rel)
 		{
 			/* La section REL était déjà présente dans le premier fichier, on ajoute à la suite celle-ci */
@@ -218,13 +218,7 @@ clean:
 	destroy_symtab_struct(st_out);
 	destroy_relocationTables(drel1);
 	destroy_relocationTables(drel2);
-
-	for(int i = 0; i < df->nb_sections; i++)
-		free(df->f[i]);
-	free(df->f);
-	free(df);
-	free(newsec1);
-	free(newsec2);
+	destroy_data_fusion(df);
 
 	return err;
 }
@@ -415,4 +409,14 @@ void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Table *sec
 	}
 
 	free(types);
+}
+
+void destroy_data_fusion(Data_fusion *df)
+{
+	for(int i = 0; i < df->nb_sections; i++)
+		free(df->f[i]);
+	free(df->f);
+	free(df->newsec1);
+	free(df->newsec2);
+	free(df);
 }

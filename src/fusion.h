@@ -18,6 +18,7 @@ typedef struct
 {
 	unsigned nb_sections;
 	Elf32_Off offset;
+	Elf32_Section *newsec1, *newsec2;
 	Fusion **f;
 } Data_fusion;
 
@@ -96,6 +97,8 @@ void sort_new_symbol_table(Symtab_Struct *st);
  * @param ...:      les types de section à placer dans df
  **/
 void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Table *secTab2, int nb_types, ...);
+
+void destroy_data_fusion(Data_fusion *df);
 
 
 #endif
