@@ -1,6 +1,8 @@
 #ifndef _STRINGS_H_
 #define _STRINGS_H_
 
+#include "elf.h"
+
 #define UNKNOWN 0xFFFFFFFF
 
 typedef struct { const Elf32_Word index; const char *string; } Types;

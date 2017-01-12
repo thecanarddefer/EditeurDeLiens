@@ -3,12 +3,17 @@
 #include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
-#include <elf.h>
+#include "elf.h"
 #include <sys/stat.h>
 #include <fcntl.h>
+
 #include "elf_common.h"
-#include "symbolTable.h"
 #include "util.h"
+#include "section.h"
+#include "symbol.h"
+#include "relocation.h"
+#include "disp.h"
+
 #include "fusion.h"
 
 
