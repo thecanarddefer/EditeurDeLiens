@@ -20,6 +20,7 @@ typedef struct
 	Elf32_Off offset;
 	unsigned nb_written;
 	off_t file_offset;
+	Elf32_Word symbolNameTable_size;
 	Elf32_Section *newsec1, *newsec2;
 	Fusion **f;
 } Data_fusion;
@@ -166,6 +167,24 @@ static void merge_and_write_sections_in_file(Data_fusion *df, int fd1, int fd2, 
  * @retourne le nombre d'octets écrits dans le fichier
  **/
 static ssize_t write_section_in_file(int fd_in, int fd_out, Elf32_Shdr *shdr);
+
+/**
+ * Écrit la nouvelle table des noms de section dans le fichier de sortie
+ *
+ * @param fd_out: fichier de sortie
+ * @param ehdr:   une structure de type Elf32_Ehdr initialisée
+ * @param df:     une structure de type Data_fusion initialisée
+ **/
+static void write_new_section_name_table_in_file(int fd_out, Elf32_Ehdr *ehdr, Data_fusion *df);
+
+/**
+ * Écrit la table des symboles dans le fichier de sortie
+ *
+ * @param fd_out: fichier de sortie
+ * @param df:     une structure de type Data_fusion initialisée
+ * @param st_out: une structure de type Symtab_Struct initialisée
+ **/
+static void write_new_symbol_table_in_file(int fd_out, Data_fusion *df, Symtab_Struct *st_out);
 
 /**
  * Libère la mémoire allouée pour une structure de type Data_fusion
