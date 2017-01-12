@@ -423,11 +423,16 @@ static inline Elf32_Addr get_symbol_value_generic(symbolTable *symTabFull, Elf32
 		symTabFull->symtab->tab[ELF32_R_SYM(info)]->st_value;
 }
 
-static inline char *get_symbol_name_generic(symbolTable *symTabFull, Elf32_Word info)
+static inline char *get_symbol_or_section_name(Section_Table *secTab, symbolTable *symTabFull, Elf32_Word info)
 {
-	return isDynamicRel(ELF32_R_TYPE(info)) ?
+	char *buff = isDynamicRel(ELF32_R_TYPE(info)) ?
 		get_dynamic_symbol_name(symTabFull, ELF32_R_SYM(info)) :
 		get_static_symbol_name(symTabFull,  ELF32_R_SYM(info));
+	if(strlen(buff) <= 0)
+		buff = (secTab->shdr[ELF32_R_SYM(info)]->sh_info != 0) ?
+			get_section_name(secTab, secTab->shdr[ELF32_R_SYM(info)]->sh_info) :
+			get_section_name(secTab, ELF32_R_SYM(info));
+	return buff;
 }
 
 void dump_relocation_type(Elf32_Ehdr *ehdr, Section_Table *secTab, symbolTable *symTabFull, Data_Rel *drel, int is_rela)
@@ -450,7 +455,7 @@ void dump_relocation_type(Elf32_Ehdr *ehdr, Section_Table *secTab, symbolTable *
 				rel[i][j]->r_info,
 				relocation_type_to_string(ehdr->e_machine, ELF32_R_TYPE(rel[i][j]->r_info)),
 				get_symbol_value_generic(symTabFull, rel[i][j]->r_info),
-				get_symbol_name_generic(symTabFull,  rel[i][j]->r_info));
+				get_symbol_or_section_name(secTab, symTabFull, rel[i][j]->r_info));
 			if(is_rela)
 				printf(" + %i", rel[i][j]->r_addend);
 			printf("\n");
