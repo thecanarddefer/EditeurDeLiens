@@ -80,8 +80,13 @@ int main(int argc, char *argv[])
 	for(int i = 1; i < df->nb_sections; i++)
 		print_debug("Section n°%2i : %-20s %#08x  %#08x\n", i, df->f[i]->section, df->f[i]->offset, df->f[i]->size);
 
+	/* On met à jour l'indice de section des sections */
+	print_debug(BOLD "\n==> Étape de mise à jour des indices de section des sections\n" RESET);
+	for(int i = 1; i < df->nb_sections; i++)
+		update_section_index_in_section(df->f[i]->shdr, df->newsec1, df->nb_sections);
+
 	/* On met à jour l'indice de section des symboles du premier fichier */
-	print_debug(BOLD "\n==> Étape de mise à jour des indices de section du premier fichier\n" RESET);
+	print_debug(BOLD "\n==> Étape de mise à jour des indices de section des symboles\n" RESET);
 	for(int i = 1; i < st_out->nbSymbol; i++)
 		update_section_index_in_symbol(st_out->tab[i], df->newsec1, df->nb_sections);
 
@@ -100,11 +105,12 @@ int main(int argc, char *argv[])
 	update_relocations_info(drel1, df->newsec1);
 	update_relocations_info(drel2, df->newsec2);
 	merge_and_fix_relocations(df, fd_in2, secTab1, secTab2, drel1, drel2);
-	merge_and_write_sections_in_file(df, fd_in1, fd_in2, fd_out);
+	//merge_and_write_sections_in_file(df, fd_in1, fd_in2, fd_out);
 
 	print_debug(BOLD "\n==> Étape d'écriture du nouvel en-tête ELF\n" RESET);
+	ehdr1->e_shoff += ehdr2->e_shoff;
 	write_elf_header_in_file(fd_out, ehdr1, df);
-	write_new_section_name_table_in_file(fd_out, ehdr1, df);
+	write_new_section_table_in_file(fd_out, ehdr1, df);
 
 clean:
 	close(fd_in1);
@@ -170,6 +176,10 @@ static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Tab
 		df->f[ind] = malloc(sizeof(Fusion));
 		df->f[ind]->offset = df->offset;
 		df->f[ind]->ptr_shdr1 = secTab1->shdr[i];
+		df->f[ind]->shdr = malloc(sizeof(Elf32_Shdr));
+		memcpy(df->f[ind]->shdr, secTab1->shdr[i], sizeof(Elf32_Shdr));
+		df->f[ind]->shdr->sh_name = i;
+		df->f[ind]->shdr->sh_offset = df->offset;
 
 		if((j == secTab2->nb_sections) || (mode == ONLY1))
 		{
@@ -186,6 +196,7 @@ static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Tab
 				i, get_section_name(secTab2, j), df->offset, secTab1->shdr[i]->sh_size, secTab2->shdr[j]->sh_size, secTab1->shdr[i]->sh_size + secTab2->shdr[j]->sh_size);
 			df->f[ind]->size = secTab1->shdr[i]->sh_size + secTab2->shdr[j]->sh_size;
 			df->f[ind]->ptr_shdr2 = secTab2->shdr[j];
+			df->f[ind]->shdr->sh_size += secTab2->shdr[j]->sh_size;
 		}
 
 		strcpy(df->f[ind]->section, get_section_name(secTab1, i));
@@ -216,6 +227,10 @@ static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Tab
 			df->f[ind]->offset = df->offset;
 			strcpy(df->f[ind]->section, get_section_name(secTab2, i));
 			df->offset += df->f[ind]->size;
+			df->f[ind]->shdr = malloc(sizeof(Elf32_Shdr));
+			memcpy(df->f[ind]->shdr, secTab2->shdr[i], sizeof(Elf32_Shdr));
+			df->f[ind]->shdr->sh_name = i;
+			df->f[ind]->shdr->sh_offset = df->offset;
 		}
 	}
 
@@ -237,6 +252,16 @@ static Elf32_Section *find_new_section_index(Data_fusion *df, Section_Table *sec
 	}
 
 	return newsec;
+}
+
+static void update_section_index_in_section(Elf32_Shdr *section, Elf32_Section *newsec, unsigned nb_sections)
+{
+	if((section->sh_link >= nb_sections) || (section->sh_info >= nb_sections))
+		return;
+	print_debug("La section qui pointait vers les sections LN %2i et Inf %2i pointe dorénavant vers les indices %2i et %2i\n",
+		section->sh_link, section->sh_info, newsec[section->sh_link], newsec[section->sh_info]);
+	section->sh_link = newsec[section->sh_link];
+	section->sh_info = newsec[section->sh_info];
 }
 
 static void update_section_index_in_symbol(Elf32_Sym *symbol, Elf32_Section *newsec, unsigned nb_sections)
@@ -476,7 +501,7 @@ static void write_elf_header_in_file(int fd_out, Elf32_Ehdr *ehdr, Data_fusion *
 	}
 
 	ehdr->e_shstrndx = i;
-	ehdr->e_shoff    = df->f[i]->offset;
+	//ehdr->e_shoff    = df->f[i]->offset;
 	ehdr->e_shnum    = df->nb_sections;
 
 	print_debug("Il y a %u sections dans le nouveau fichier\n", ehdr->e_shnum);
@@ -559,15 +584,33 @@ static ssize_t write_section_in_file(int fd_in, int fd_out, Elf32_Shdr *shdr)
 		return w;
 }
 
-static void write_new_section_name_table_in_file(int fd_out, Elf32_Ehdr *ehdr, Data_fusion *df)
+static void write_new_section_table_in_file(int fd_out, Elf32_Ehdr *ehdr, Data_fusion *df)
 {
-	const off_t old_offset = df->file_offset;
+	off_t old_offset = ehdr->e_shoff;
+	off_t new_offset = old_offset;
 
-	print_debug("Écriture de la table des noms de section à l'offset %#x ", ehdr->e_shoff);
-	lseek(fd_out, ehdr->e_shoff, SEEK_SET);
 	for(int i = 0; i < df->nb_sections; i++)
-		df->file_offset += write(fd_out, df->f[i]->section, strlen(df->f[i]->section));
-	print_debug("(taille écrite : %#x)\n", df->file_offset - old_offset);
+	{
+		print_debug("Écriture de la section n°%2i '%s' dans le fichier à l'offset %#x ", i, df->f[i]->section, old_offset);
+		lseek(fd_out, ehdr->e_shoff + i * ehdr->e_shentsize, SEEK_SET);
+		new_offset += write(fd_out, &df->f[i]->shdr->sh_name,      sizeof(df->f[i]->shdr->sh_name));
+		new_offset += write(fd_out, &df->f[i]->shdr->sh_type,      sizeof(df->f[i]->shdr->sh_type));
+		new_offset += write(fd_out, &df->f[i]->shdr->sh_flags,     sizeof(df->f[i]->shdr->sh_flags));
+		new_offset += write(fd_out, &df->f[i]->shdr->sh_addr,      sizeof(df->f[i]->shdr->sh_addr));
+		new_offset += write(fd_out, &df->f[i]->shdr->sh_offset,    sizeof(df->f[i]->shdr->sh_offset));
+		new_offset += write(fd_out, &df->f[i]->shdr->sh_size,      sizeof(df->f[i]->shdr->sh_size));
+		new_offset += write(fd_out, &df->f[i]->shdr->sh_link,      sizeof(df->f[i]->shdr->sh_link));
+		new_offset += write(fd_out, &df->f[i]->shdr->sh_info,      sizeof(df->f[i]->shdr->sh_info));
+		new_offset += write(fd_out, &df->f[i]->shdr->sh_addralign, sizeof(df->f[i]->shdr->sh_addralign));
+		new_offset += write(fd_out, &df->f[i]->shdr->sh_entsize,   sizeof(df->f[i]->shdr->sh_entsize));
+		print_debug("(%s)\n", (sizeof(Elf32_Shdr) == new_offset - old_offset) ? "correct" : "ERREUR");
+		old_offset = new_offset;
+	}
+
+	print_debug("Écriture de la table des noms de section à l'offset %#x\n", df->f[ehdr->e_shstrndx]->offset);
+	lseek(fd_out, df->f[ehdr->e_shstrndx]->offset, SEEK_SET);
+	for(int i = 0; i < df->nb_sections; i++)
+		df->file_offset += write(fd_out, df->f[i]->section, strlen(df->f[i]->section) + 1);
 }
 
 static void write_new_symbol_table_in_file(int fd_out, Data_fusion *df, Symtab_Struct *st_out)

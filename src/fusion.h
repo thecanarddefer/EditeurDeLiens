@@ -13,6 +13,7 @@ typedef struct
 	Elf32_Shdr *ptr_shdr2;
 	Elf32_Word size;
 	Elf32_Off offset;
+	Elf32_Shdr *shdr;
 } Fusion;
 
 typedef struct
@@ -63,7 +64,16 @@ static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Tab
 static Elf32_Section *find_new_section_index(Data_fusion *df, Section_Table *secTab);
 
 /**
- * Met à jour l'index de section d'un symbole
+ * Met à jour les indices de section d'une section
+ *
+ * @param section:     une section de type Elf32_Shdr à corriger
+ * @param newsec:      un tableau de type Elf32_Section contenant les nouveaux index de sections
+ * @param nb_sections: le nombre de sections dans le fichier de sortie
+ **/
+static void update_section_index_in_section(Elf32_Shdr *section, Elf32_Section *newsec, unsigned nb_sections);
+
+/**
+ * Met à jour l'indices de section d'un symbole
  *
  * @param symbol:      un symbole de type Elf32_Sym à corriger
  * @param newsec:      un tableau de type Elf32_Section contenant les nouveaux index de sections
@@ -176,7 +186,7 @@ static ssize_t write_section_in_file(int fd_in, int fd_out, Elf32_Shdr *shdr);
  * @param ehdr:   une structure de type Elf32_Ehdr initialisée
  * @param df:     une structure de type Data_fusion initialisée
  **/
-static void write_new_section_name_table_in_file(int fd_out, Elf32_Ehdr *ehdr, Data_fusion *df);
+static void write_new_section_table_in_file(int fd_out, Elf32_Ehdr *ehdr, Data_fusion *df);
 
 /**
  * Écrit la table des symboles dans le fichier de sortie
