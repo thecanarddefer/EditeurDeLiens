@@ -74,11 +74,7 @@ int main(int argc, char *argv[])
 
 	/* On calcule les nouveaux indices de section */
 	print_debug(BOLD "\n==> Étape de création des tables de correspondance\n" RESET);
-	df->newsec1 = find_new_section_index(df, secTab1);
-	df->newsec2 = find_new_section_index(df, secTab2);
-	print_debug(BOLD "\n==> Affichage de la fusion des sections\n" RESET);
-	for(int i = 1; i < df->nb_sections; i++)
-		print_debug("Section n°%2i : %-20s %#08x  %#08x\n", i, df->f[i]->section, df->f[i]->offset, df->f[i]->size);
+	find_new_section_index(df, secTab1, secTab2);
 
 	/* On met à jour l'indice de section des sections */
 	print_debug(BOLD "\n==> Étape de mise à jour des indices de section des sections\n" RESET);
@@ -92,8 +88,7 @@ int main(int argc, char *argv[])
 
 	/* On fusionne et corrige les symboles */
 	print_debug(BOLD "\n==> Étape de fusion des tables de symboles\n" RESET);
-	err = merge_and_fix_symbols(df, secTab1, secTab2, st1, st2, st_out);
-	if(err)
+	if((err = merge_and_fix_symbols(df, secTab1, secTab2, st1, st2, st_out)))
 		goto clean;
 	sort_new_symbol_table(st_out);
 	write_new_symbol_table_in_file(fd_out, df, st_out);
@@ -102,8 +97,7 @@ int main(int argc, char *argv[])
 
 	/* On met à jour le champ r_info des symboles des tables de réimplantations */
 	print_debug(BOLD "\n==> Étape de fusion des tables de réimplantations\n" RESET);
-	update_relocations_info(drel1, df->newsec1);
-	update_relocations_info(drel2, df->newsec2);
+	update_relocations_info(df, drel1, drel2);
 	merge_and_fix_relocations(df, fd_in2, secTab1, secTab2, drel1, drel2);
 	//merge_and_write_sections_in_file(df, fd_in1, fd_in2, fd_out);
 
@@ -237,7 +231,7 @@ static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Tab
 	free(types);
 }
 
-static Elf32_Section *find_new_section_index(Data_fusion *df, Section_Table *secTab)
+static Elf32_Section *find_new_section_index_for_one_file(Data_fusion *df, Section_Table *secTab)
 {
 	int j;
 	Elf32_Section *newsec = malloc(sizeof(Elf32_Section) * secTab->nb_sections);
@@ -252,6 +246,12 @@ static Elf32_Section *find_new_section_index(Data_fusion *df, Section_Table *sec
 	}
 
 	return newsec;
+}
+
+void find_new_section_index(Data_fusion *df, Section_Table *secTab1, Section_Table *secTab2)
+{
+	df->newsec1 = find_new_section_index_for_one_file(df, secTab1);
+	df->newsec2 = find_new_section_index_for_one_file(df, secTab2);
 }
 
 static void update_section_index_in_section(Elf32_Shdr *section, Elf32_Section *newsec, unsigned nb_sections)
@@ -375,11 +375,17 @@ static int merge_and_fix_symbols(Data_fusion *df, Section_Table *secTab1, Sectio
 	return 0;
 }
 
-static void update_relocations_info(Data_Rel *drel, Elf32_Section *newsec)
+static void update_relocations_info_for_one_file(Data_Rel *drel, Elf32_Section *newsec)
 {
 	for(int i = 0; i < drel->nb_rel; i++)
 		for(int j = 0; j < drel->e_rel[i]; j++)
 			drel->rel[i][j]->r_info = ELF32_R_INFO(newsec[ ELF32_R_SYM(drel->rel[i][j]->r_info) ], ELF32_R_TYPE(drel->rel[i][j]->r_info));
+}
+
+static void update_relocations_info(Data_fusion *df, Data_Rel *drel1, Data_Rel *drel2)
+{
+	update_relocations_info_for_one_file(drel1, df->newsec1);
+	update_relocations_info_for_one_file(drel2, df->newsec2);
 }
 
 static void merge_and_fix_relocations(Data_fusion *df, int fd2, Section_Table *secTab1, Section_Table *secTab2, Data_Rel *drel1, Data_Rel *drel2)

@@ -54,14 +54,14 @@ static int open_files(char *argv[], int *fd_in1, int *fd_in2, int *fd_out);
 static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Table *secTab2, Gather_Mode mode, int nb_types, ...);
 
 /**
- * Donne la correspondance des numéros de sections d'un fichier d'entrée avec
+ * Calcule les tables de correspondance des numéros de sections d'un fichier d'entrée avec
  * les numéros de section du fichier de sortie
  *
  * @param df:     une structure de type Data_fusion
- * @param secTab: une structure de type Section_Table initialisée
- * @retourne un tableau de type Elf32_Section contenant les nouveaux indices de sections
+ * @param secTab1: une structure de type Section_Table initialisée correspondant au premier fichier
+ * @param secTab2: une structure de type Section_Table initialisée correspondant au second fichier
  **/
-static Elf32_Section *find_new_section_index(Data_fusion *df, Section_Table *secTab);
+void find_new_section_index(Data_fusion *df, Section_Table *secTab1, Section_Table *secTab2);
 
 /**
  * Met à jour les indices de section d'une section
@@ -116,10 +116,11 @@ static int merge_and_fix_symbols(Data_fusion *df, Section_Table *secTab1, Sectio
 /**
  * Met à jour le champ r_info des tables de réimplantations
  *
- * @param drel:   une structure de type Data_Rel initialisée
- * @param newsec: un tableau de type Elf32_Section contenant les nouveaux index de sections
+ * @param drel1: une structure de type Data_Rel initialisée correspondant premier fichier
+ * @param drel2: une structure de type Data_Rel initialisée correspondant second fichier
+ * @param df:    une structure de type Data_fusion initialisée
  **/
-static void update_relocations_info(Data_Rel *drel, Elf32_Section *newsec);
+static void update_relocations_info(Data_fusion *df, Data_Rel *drel1, Data_Rel *drel2);
 
 /**
  * Fusionne deux tables de réimplantations tout en corrigeant les symboles
