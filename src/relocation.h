@@ -1,7 +1,7 @@
 #ifndef _RELOCATION_H_
 #define _RELOCATION_H_
 
-#include "elf.h"
+#include <elf.h>
 
 typedef struct
 {

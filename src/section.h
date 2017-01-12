@@ -1,7 +1,7 @@
 #ifndef _SECTION_H
 #define _SECTION_H
 
-#include "elf.h"
+#include <elf.h>
 
 typedef struct
 {

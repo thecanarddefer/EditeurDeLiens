@@ -1,7 +1,7 @@
 #ifndef _DISP_H_
 #define _DISP_H_
 
-#include "elf.h"
+#include <elf.h>
 // #include "elf_common.h"
 
 /**

@@ -1,7 +1,7 @@
 #ifndef _READELF_H_
 #define _READELF_H_
 
-#include "elf.h"
+#include <elf.h>
 #include "elf_common.h"
 
 #define DSP_FILE_HEADER     (1 << 0)

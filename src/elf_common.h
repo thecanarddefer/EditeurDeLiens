@@ -1,7 +1,7 @@
 #ifndef _ELF_COMMON_H_
 #define _ELF_COMMON_H_
 
-#include "elf.h"
+#include <elf.h>
 #include "section.h"
 
 /**

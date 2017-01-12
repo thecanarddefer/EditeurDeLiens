@@ -9,6 +9,7 @@ set(C_FLAGS_EXTRA         "-Wall -Wextra -Wuninitialized -Wstrict-prototypes -Wn
 set(CMAKE_C_FLAGS         "${CMAKE_C_FLAGS}         ${C_FLAGS_EXTRA}")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${C_FLAGS_EXTRA}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
+include_directories("${CMAKE_SOURCE_DIR}/.include/")
 
 message(STATUS "Building ${PROJECT_NAME} with build type ${CMAKE_BUILD_TYPE}")
 add_subdirectory(src)

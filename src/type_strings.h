@@ -1,7 +1,7 @@
 #ifndef _STRINGS_H_
 #define _STRINGS_H_
 
-#include "elf.h"
+#include <elf.h>
 
 #define UNKNOWN 0xFFFFFFFF
 

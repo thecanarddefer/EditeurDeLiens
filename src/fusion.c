@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
-#include "elf.h"
+#include <elf.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 
