@@ -44,23 +44,28 @@ int main(int argc, char *argv[])
 	df->nb_written  = 0;
 
 	/* On crée la nouvelle section n°0 de type NULL */
-	gather_sections(df, secTab1, secTab2, 1, SHT_NULL);
+	gather_sections(df, secTab1, secTab2, ONLY1, 1, SHT_NULL);
 
 	/* On crée le fichier de sortie qui contient les sections PROGBITS fusionnées */
 	print_debug(BOLD "==> Étape de fusion des sections PROGBITS\n" RESET);
-	gather_sections(df, secTab1, secTab2, 2, SHT_PROGBITS, SHT_NOBITS);
+	gather_sections(df, secTab1, secTab2, MERGE, 2, SHT_PROGBITS, SHT_NOBITS);
 	df->file_offset = ehdr1->e_ehsize;
 	merge_and_write_sections_in_file(df, fd_in1, fd_in2, fd_out);
 
 	/* On recherche les sections de type REL */
 	print_debug(BOLD "\n==> Étape de récupération des sections REL(A)\n" RESET);
-	gather_sections(df, secTab1, secTab2, 2, SHT_REL, SHT_RELA);
+	gather_sections(df, secTab1, secTab2, MERGE, 2, SHT_REL, SHT_RELA);
 
 	/* On recherche les sections spécifiques à ARM */
 	print_debug(BOLD "\n==> Étape de récupération des sections ARM\n" RESET);
 	df->nb_written = df->nb_sections;
-	gather_sections(df, secTab1, secTab2, 3, SHT_ARM_EXIDX, SHT_ARM_PREEMPTMAP, SHT_ARM_ATTRIBUTES);
+	gather_sections(df, secTab1, secTab2, ONLY1, 3, SHT_ARM_EXIDX, SHT_ARM_PREEMPTMAP, SHT_ARM_ATTRIBUTES);
 	write_only_sections_in_file(df, fd_in1, fd_out);
+
+	/* En enfin, on recherche toutes les autres sections */
+	print_debug(BOLD "\n==> Étape de récupération des autres sections\n" RESET);
+	gather_sections(df, secTab1, secTab2, MERGE_NOT_IN, 8, SHT_NULL, SHT_PROGBITS, SHT_NOBITS,
+		SHT_REL, SHT_RELA, SHT_ARM_EXIDX, SHT_ARM_PREEMPTMAP, SHT_ARM_ATTRIBUTES);
 
 	/* On calcule les nouveaux indices de section */
 	print_debug(BOLD "\n==> Étape de création des tables de correspondance\n" RESET);
@@ -127,7 +132,7 @@ static int open_files(char *argv[], int *fd_in1, int *fd_in2, int *fd_out)
 	return 0;
 }
 
-static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Table *secTab2, int nb_types, ...)
+static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Table *secTab2, Gather_Mode mode, int nb_types, ...)
 {
 	int ind, j;
 	Elf32_Word *types = malloc(sizeof(Elf32_Word) * nb_types);
@@ -143,7 +148,7 @@ static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Tab
 	for(int i = 0; i < secTab1->nb_sections; i++)
 	{
 		for(j = 0; (j < nb_types) && (secTab1->shdr[i]->sh_type) != types[j]; j++);
-		if(j == nb_types)
+		if(((mode == MERGE_NOT_IN) && (j != nb_types)) || ((mode != MERGE_NOT_IN) && (j == nb_types)))
 			continue;
 
 		/* Recherche si la section est présente dans le second fichier */
@@ -158,7 +163,7 @@ static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Tab
 		df->f[ind] = malloc(sizeof(Fusion));
 		df->f[ind]->ptr_shdr1 = secTab1->shdr[i];
 
-		if(j == secTab2->nb_sections)
+		if((j == secTab2->nb_sections) || (mode == ONLY1))
 		{
 			/* La section est présente uniquement dans le premier fichier */
 			print_debug("Ajout de la section %i '%s' (-> premier fichier uniquement)\n", i, get_section_name(secTab1, i));
@@ -182,7 +187,7 @@ static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Tab
 	for(int i = 1; i < secTab2->nb_sections; i++)
 	{
 		for(j = 0; (j < nb_types) && (secTab2->shdr[i]->sh_type) != types[j]; j++);
-		if(j == nb_types)
+		if(((mode == MERGE_NOT_IN) && (j != nb_types)) || ((mode != MERGE_NOT_IN) && (j == nb_types)))
 			continue;
 
 		/* Recherche si la section est absente du premier fichier */
@@ -452,7 +457,7 @@ static void sort_new_symbol_table(Symtab_Struct *st)
 
 static void write_elf_header_in_file(int fd_out, Elf32_Ehdr *ehdr, Data_fusion *df)
 {
-	//for(ehdr->e_shstrndx = 0; strcmp(df->f[ehdr->e_shstrndx]->section, ".shstrtab"); ehdr->e_shstrndx++);
+	for(ehdr->e_shstrndx = 0; strcmp(df->f[ehdr->e_shstrndx]->section, ".shstrtab"); ehdr->e_shstrndx++);
 	ehdr->e_shoff = df->file_offset;
 	ehdr->e_shnum = df->nb_sections;
 

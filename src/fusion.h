@@ -24,6 +24,8 @@ typedef struct
 	Fusion **f;
 } Data_fusion;
 
+typedef enum { ONLY1, MERGE, MERGE_NOT_IN } Gather_Mode;
+
 /**
  * Ouvre les deux premiers fichiers passés en argument en lecture
  * et le troisième en écriture
@@ -43,9 +45,10 @@ static int open_files(char *argv[], int *fd_in1, int *fd_in2, int *fd_out);
  * @param secTab1:  une structure de type Section_Table initialisée concernant le premier fichier
  * @param secTab2:  une structure de type Section_Table initialisée concernant le second fichier
  * @param nb_types: le nombre de types à passer en argument
+ * @param mode:     le mode, de type Gather_Mode
  * @param ...:      les types de section à placer dans df
  **/
-static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Table *secTab2, int nb_types, ...);
+static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Table *secTab2, Gather_Mode mode, int nb_types, ...);
 
 /**
  * Donne la correspondance des numéros de sections d'un fichier d'entrée avec
