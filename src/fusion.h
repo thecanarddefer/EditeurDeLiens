@@ -18,6 +18,7 @@ typedef struct
 {
 	unsigned nb_sections;
 	Elf32_Off offset;
+	off_t file_offset;
 	Elf32_Section *newsec1, *newsec2;
 	Fusion **f;
 } Data_fusion;
@@ -140,9 +141,9 @@ static void merge_and_write_sections_in_file(Data_fusion *df, int fd1, int fd2, 
  * @param fd_in:  un descrpteur de fichier vers le fichier d'entrée
  * @param fd_out: un descrpteur de fichier vers le fichier de sortie
  * @param shdr:   une structure de type Elf32_Shdr initialisée
- * @retourne 0 si la copie s'est bien déroulée
+ * @retourne le nombre d'octets écrits dans le fichier
  **/
-static int write_section_in_file(int fd_in, int fd_out, Elf32_Shdr *shdr);
+static ssize_t write_section_in_file(int fd_in, int fd_out, Elf32_Shdr *shdr);
 
 /**
  * Libère la mémoire allouée pour une structure de type Data_fusion

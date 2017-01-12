@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 	/* On crée le fichier de sortie qui contient les sections PROGBITS fusionnées */
 	print_debug(BOLD "==> Étape de fusion des sections PROGBITS\n" RESET);
 	gather_sections(df, secTab1, secTab2, 2, SHT_PROGBITS, SHT_NOBITS);
-	lseek(fd_out, ehdr1->e_ehsize, SEEK_SET);
+	df->file_offset = ehdr1->e_ehsize;
 	merge_and_write_sections_in_file(df, fd_in1, fd_in2, fd_out);
 
 	/* On recherche les sections de type REL */
@@ -111,7 +111,7 @@ static int open_files(char *argv[], int *fd_in1, int *fd_in2, int *fd_out)
 	CHECK_OPEN(*fd_in1, 1);
 	*fd_in2 = open(argv[2], O_RDONLY);
 	CHECK_OPEN(*fd_in2, 2);
-	*fd_out = open(argv[3], O_WRONLY | O_CREAT, 0644);
+	*fd_out = open(argv[3], O_WRONLY | O_CREAT | O_TRUNC, 0644);
 	CHECK_OPEN(*fd_out, 3);
 	return 0;
 }
@@ -441,25 +441,30 @@ static void sort_new_symbol_table(Symtab_Struct *st)
 
 static void merge_and_write_sections_in_file(Data_fusion *df, int fd1, int fd2, int fd_out)
 {
+	off_t old_offset = df->file_offset;
+	lseek(fd_out, old_offset, SEEK_SET);
+
 	for(int i = 1; i < df->nb_sections; i++)
 	{
+		print_debug("Écriture de %#x octets de la section %i '%s' à l'offset %#x ", df->f[i]->size, i, df->f[i]->section, old_offset);
 		if(df->f[i]->ptr_shdr1 != NULL)
 		{
 			/* On écrit la section du premier fichier */
-			write_section_in_file(fd1, fd_out, df->f[i]->ptr_shdr1);
+			df->file_offset += write_section_in_file(fd1, fd_out, df->f[i]->ptr_shdr1);
 			if (df->f[i]->ptr_shdr2 != NULL) /* On écrit la section du second fichier */
-				write_section_in_file(fd2, fd_out, df->f[i]->ptr_shdr2);
-
+				df->file_offset += write_section_in_file(fd2, fd_out, df->f[i]->ptr_shdr2);
 		}
 		else
 		{
 			/* On écrit uniquement la section du second fichier */
-			write_section_in_file(fd2, fd_out, df->f[i]->ptr_shdr2);
+			df->file_offset += write_section_in_file(fd2, fd_out, df->f[i]->ptr_shdr2);
 		}
+		print_debug("(taille écrite : %#x => %s)\n", df->file_offset - old_offset, (df->f[i]->size == df->file_offset - old_offset) ? "correcte" : "ERREUR");
+		old_offset = df->file_offset;
 	}
 }
 
-static int write_section_in_file(int fd_in, int fd_out, Elf32_Shdr *shdr)
+static ssize_t write_section_in_file(int fd_in, int fd_out, Elf32_Shdr *shdr)
 {
 		ssize_t r, w;
 		unsigned char *buff = malloc(sizeof(unsigned char) * shdr->sh_size);
@@ -470,7 +475,10 @@ static int write_section_in_file(int fd_in, int fd_out, Elf32_Shdr *shdr)
 		w = write(fd_out, buff, shdr->sh_size);
 		free(buff);
 
-		return (r != w);
+		if(r != w)
+			fprintf(stderr, "ATTENTION : %lu octets ont été lus depuis le fichier d''entrée, mais uniquement %lu ont été écrits.\n", r, w);
+
+		return w;
 }
 
 static void destroy_data_fusion(Data_fusion *df)
