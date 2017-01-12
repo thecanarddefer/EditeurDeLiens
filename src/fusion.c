@@ -83,6 +83,9 @@ int main(int argc, char *argv[])
 	update_relocations_info(drel2, df->newsec2);
 	merge_and_fix_relocations(df, fd_in2, secTab1, secTab2, drel1, drel2);
 
+	print_debug(BOLD "\n==> Étape d'écriture du nouvel en-tête ELF\n" RESET);
+	write_elf_header_in_file(fd_out, ehdr1, df);
+
 clean:
 	close(fd_in1);
 	close(fd_in2);
@@ -437,6 +440,31 @@ static void sort_new_symbol_table(Symtab_Struct *st)
 
 		swap_symbols(st->tab[i], st->tab[j]);
 	}
+}
+
+static void write_elf_header_in_file(int fd_out, Elf32_Ehdr *ehdr, Data_fusion *df)
+{
+	//for(ehdr->e_shstrndx = 0; strcmp(df->f[ehdr->e_shstrndx]->section, ".shstrtab"); ehdr->e_shstrndx++);
+	ehdr->e_shoff = df->file_offset;
+	ehdr->e_shnum = df->nb_sections;
+
+	print_debug("Il y a %u sections dans le nouveau fichier\n", ehdr->e_shnum);
+	print_debug("La section %i '.shstrtab' sera écrite à l'offset %#x\n", ehdr->e_shstrndx, ehdr->e_shoff);
+	lseek(fd_out, 0, SEEK_SET);
+	write(fd_out, ehdr->e_ident,      EI_NIDENT);
+	write(fd_out, &ehdr->e_type,      sizeof(ehdr->e_type));
+	write(fd_out, &ehdr->e_machine,   sizeof(ehdr->e_machine));
+	write(fd_out, &ehdr->e_version,   sizeof(ehdr->e_version));
+	write(fd_out, &ehdr->e_entry,     sizeof(ehdr->e_entry));
+	write(fd_out, &ehdr->e_phoff,     sizeof(ehdr->e_phoff));
+	write(fd_out, &ehdr->e_shoff,     sizeof(ehdr->e_shoff));
+	write(fd_out, &ehdr->e_flags,     sizeof(ehdr->e_flags));
+	write(fd_out, &ehdr->e_ehsize,    sizeof(ehdr->e_ehsize));
+	write(fd_out, &ehdr->e_phentsize, sizeof(ehdr->e_phentsize));
+	write(fd_out, &ehdr->e_phnum,     sizeof(ehdr->e_phnum));
+	write(fd_out, &ehdr->e_shentsize, sizeof(ehdr->e_shentsize));
+	write(fd_out, &ehdr->e_shnum,     sizeof(ehdr->e_shnum));
+	write(fd_out, &ehdr->e_shstrndx,  sizeof(ehdr->e_shstrndx));
 }
 
 static void merge_and_write_sections_in_file(Data_fusion *df, int fd1, int fd2, int fd_out)

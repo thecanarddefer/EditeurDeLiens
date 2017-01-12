@@ -125,6 +125,15 @@ static void merge_and_fix_relocations(Data_fusion *df, int fd2, Section_Table *s
 static void sort_new_symbol_table(Symtab_Struct *st);
 
 /**
+ * Écrit le nouvel en-tête ELF dans le fichier de sortie
+ *
+ * @param fd_out: fichier de sortie
+ * @param ehdr:   une structure de type Elf32_Ehdr initialisée
+ * @param df:     une structure de type Data_fusion initialisée
+ **/
+static void write_elf_header_in_file(int fd_out, Elf32_Ehdr *ehdr, Data_fusion *df);
+
+/**
  * Concatène des sections dans le fichier de sortie
  *
  * @param df:     une structure de type Data_fusion initialisée
