@@ -41,6 +41,7 @@ int main(int argc, char *argv[])
 	df->f = NULL;
 	df->offset = 0;
 	df->nb_sections = 0;
+	df->nb_written  = 0;
 
 	/* On crée la nouvelle section n°0 de type NULL */
 	gather_sections(df, secTab1, secTab2, 1, SHT_NULL);
@@ -82,6 +83,7 @@ int main(int argc, char *argv[])
 	update_relocations_info(drel1, df->newsec1);
 	update_relocations_info(drel2, df->newsec2);
 	merge_and_fix_relocations(df, fd_in2, secTab1, secTab2, drel1, drel2);
+	merge_and_write_sections_in_file(df, fd_in1, fd_in2, fd_out);
 
 	print_debug(BOLD "\n==> Étape d'écriture du nouvel en-tête ELF\n" RESET);
 	write_elf_header_in_file(fd_out, ehdr1, df);
@@ -472,7 +474,7 @@ static void merge_and_write_sections_in_file(Data_fusion *df, int fd1, int fd2, 
 	off_t old_offset = df->file_offset;
 	lseek(fd_out, old_offset, SEEK_SET);
 
-	for(int i = 1; i < df->nb_sections; i++)
+	for(int i = df->nb_written; i < df->nb_sections; i++)
 	{
 		print_debug("Écriture de %#x octets de la section %i '%s' à l'offset %#x ", df->f[i]->size, i, df->f[i]->section, old_offset);
 		if(df->f[i]->ptr_shdr1 != NULL)
@@ -489,6 +491,7 @@ static void merge_and_write_sections_in_file(Data_fusion *df, int fd1, int fd2, 
 		}
 		print_debug("(taille écrite : %#x => %s)\n", df->file_offset - old_offset, (df->f[i]->size == df->file_offset - old_offset) ? "correcte" : "ERREUR");
 		old_offset = df->file_offset;
+		df->nb_written++;
 	}
 }
 

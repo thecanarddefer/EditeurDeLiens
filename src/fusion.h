@@ -18,6 +18,7 @@ typedef struct
 {
 	unsigned nb_sections;
 	Elf32_Off offset;
+	unsigned nb_written;
 	off_t file_offset;
 	Elf32_Section *newsec1, *newsec2;
 	Fusion **f;
