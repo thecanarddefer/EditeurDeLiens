@@ -97,8 +97,8 @@ int main(int argc, char *argv[])
 		goto clean;
 	sort_new_symbol_table(st_out);
 	write_new_symbol_table_in_file(fd_out, df, st_out);
-	print_debug(BOLD "\n==> Affichage de la fusion des symboles\n" RESET);
-	dump_symtab(st_out);
+	if(print_debug(BOLD "\n==> Affichage de la fusion des symboles\n" RESET))
+		dump_symtab(st_out);
 
 	/* On met à jour le champ r_info des symboles des tables de réimplantations */
 	print_debug(BOLD "\n==> Étape de fusion des tables de réimplantations\n" RESET);
