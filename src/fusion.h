@@ -66,11 +66,9 @@ void find_new_section_index(Data_fusion *df, Section_Table *secTab1, Section_Tab
 /**
  * Met à jour les indices de section d'une section
  *
- * @param section:     une section de type Elf32_Shdr à corriger
- * @param newsec:      un tableau de type Elf32_Section contenant les nouveaux index de sections
- * @param nb_sections: le nombre de sections dans le fichier de sortie
+ * @param df: une structure de type Data_fusion
  **/
-static void update_section_index_in_section(Elf32_Shdr *section, Elf32_Section *newsec, unsigned nb_sections);
+static void update_section_index_in_sections(Data_fusion *df);
 
 /**
  * Met à jour l'indices de section d'un symbole

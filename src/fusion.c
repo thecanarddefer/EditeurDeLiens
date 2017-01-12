@@ -78,8 +78,7 @@ int main(int argc, char *argv[])
 
 	/* On met à jour l'indice de section des sections */
 	print_debug(BOLD "\n==> Étape de mise à jour des indices de section des sections\n" RESET);
-	for(int i = 1; i < df->nb_sections; i++)
-		update_section_index_in_section(df->f[i]->shdr, df->newsec1, df->nb_sections);
+	update_section_index_in_sections(df);
 
 	/* On met à jour l'indice de section des symboles du premier fichier */
 	print_debug(BOLD "\n==> Étape de mise à jour des indices de section des symboles\n" RESET);
@@ -262,6 +261,17 @@ static void update_section_index_in_section(Elf32_Shdr *section, Elf32_Section *
 		section->sh_link, section->sh_info, newsec[section->sh_link], newsec[section->sh_info]);
 	section->sh_link = newsec[section->sh_link];
 	section->sh_info = newsec[section->sh_info];
+}
+
+static void update_section_index_in_sections(Data_fusion *df)
+{
+	for(int i = 1; i < df->nb_sections; i++)
+	{
+		if(df->f[i]->ptr_shdr1 != NULL)
+			update_section_index_in_section(df->f[i]->shdr, df->newsec1, df->nb_sections);
+		else
+			update_section_index_in_section(df->f[i]->shdr, df->newsec2, df->nb_sections);
+	}
 }
 
 static void update_section_index_in_symbol(Elf32_Sym *symbol, Elf32_Section *newsec, unsigned nb_sections)
