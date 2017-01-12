@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
 	Section_Table *secTab1 = read_sectionTable(fd_in1, ehdr1);
 	Section_Table *secTab2 = read_sectionTable(fd_in2, ehdr2);
 	symbolTable *st1       = read_symbolTable(fd_in1, secTab1);
-	symbolTable *st2       = read_symbolTable(fd_in1, secTab2);
+	symbolTable *st2       = read_symbolTable(fd_in2, secTab2);
 	Symtab_Struct *st_out  = read_symtab_struct(fd_in1, secTab1, SHT_SYMTAB); // En réalité, on duplique la table des symboles du premier fichier
 	Data_Rel *drel1        = read_relocationTables(fd_in1, secTab1);
 	Data_Rel *drel2        = read_relocationTables(fd_in2, secTab2);
