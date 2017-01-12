@@ -1,0 +1,29 @@
+Intro :
+==> Trois "grosses" parties (commun, readelf & fusion)
+
+COMMUN (1 fichier/étape) :
+- Fonctions de lecture
+- (Des fonctions utilitaires intermédiaires)
+- Des fonctions de libération
+
+READELF :
+- EHDR
+- SHDR
+- HEXDUMP
+- SYMTAB/DYNSYM
+- REL(A)
+
+FUSION :
+- Recherche & fusion PROGBITS
+- Recherche REL
+- Recherche ARM
+- Recherche autres
+- Renumérotations des sections
+- Fusion & correction symboles
+- Fusion & corrections réimplémentations
+- Ecriture du fichier
+
+TESTS :
+- Démo avec des exemples
+- Script de diff
+

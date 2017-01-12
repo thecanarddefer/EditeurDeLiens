@@ -1,0 +1,110 @@
+\documentclass[a4paper,11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[francais]{babel}
+\usepackage{listings}
+\usepackage{color}
+
+\lstset{
+    backgroundcolor=\color{white},
+    keywordstyle=\color{blue}, 
+    commentstyle=\color{gray},
+    numberstyle=\tiny\color{lightgray},
+    stringstyle=\color{green},
+    basicstyle=\footnotesize,
+    breaklines=true,
+    captionpos=b,
+    numbers=left,
+    numberstyle=\tiny,
+    frame=single,
+}
+
+\title{Projet logiciel \\ Éditeur de liens - Phase de fusion}
+
+\author{Extrant Robin, Omel Jocelyn , Raynaud Paul, Sorin Gaëtan et Visage Yohan}
+\date{}
+
+\begin{document}
+\maketitle
+
+L'objectif de ce projet est de créer un programme capable de réaliser la phase de fusion d'un éditeur de lien. Cela permet de fusionner deux fichiers au format objet (de type ELF32 pour ARM) en un nouveau fichier.
+
+Pour cela, le projet est décomposé en deux phases :
+\begin{itemize}
+\item Phase 1 : Lecture d'un fichier ELF32, interprétation et affichage des données collectées
+\item Phase 2 : Fusion des données issues de deux fichiers distincts
+\end{itemize}
+%\makeindex
+
+\section{Compilation des programmes}
+Afin de compiler les fichiers C de notre projet, nous avons recours à l'outil CMake. Il suffit de l'utiliser ainsi, après s'être placé dans le répertoire du projet :
+\begin{verbatim}
+cmake .
+make
+\end{verbatim}
+
+\section{Utilisation des programmes}
+Les exécutables produits se trouvent dans le même répertoire. On peut les utiliser comme ceci :
+\subsection{readelf}
+Cet utilitaire est similaire à son homonyme : il permet d'afficher sous forme structurée les informations d'un fichier au format ELF.
+\begin{verbatim}
+./readelf OPTIONS fichier1 [fichier2 ...]
+
+Les options sont :
+  -h, --file-header      Affiche l'en-tête du fichier ELF
+  -S, --section-headers  Affiche les sections de l'en-tête
+  -x, --hex-dump         Affiche le contenu en hexadécimal d'une section donnée
+  -s, --syms             Affiche la table des symboles
+  -r, --relocs           Affiche les réalocations (si présentes)
+  -A, --all              Similaire à -h -S -s -r
+  -H, --help             Affiche cette aide et quitte
+\end{verbatim}
+
+\subsection{fusion}
+Cet autre utilitaire permet de fusionner deux fichiers .o, à l'instar de la commande \textit{ld -r -o fichier\_sortie fichier\_entrée1 fichier\_entrée2}.
+\begin{verbatim}
+./fusion fichier_entrée1 fichier_entrée2 fichier_sortie
+
+Ce programme ne dispose pas d'options.
+La variable d'environnement DEBUG_FUSION sert à afficher ce que le programme fait.
+\end{verbatim}
+
+\section{Organisation du code}
+Le code est organisé en une partie commune (une bibliothèque locale), comprenant un fichier pour chacune des étapes de la première phase :
+\begin{itemize}
+\item L'étape 1 : la récupération de l'en-tête ELF
+\item L'étape 2 : la récupération de l'en-tête des sections
+\item L'étape 4 : la récupération de la table des symboles
+\item L'étape 5 : la récupération des tables de réimplémentations 
+\end{itemize}
+
+Ensuite, il y a deux parties spécifiques dédiées à l'affichage et la fusion, qui sont respectivement \textit{readelf} et \textit{fusion}.
+
+\section{Fonctionnalités}
+Le programme \textit{readelf} est capable de :
+\begin{itemize}
+\item Lire des fichiers au format ELF32 (peu importe l'architecture, du moment qu'elle est 32 bits)
+\item Lire l'en-tête du fichier, en affichant les informations mentionnées ci-dessus
+\item Récupérer les tables de symboles dynamiques (DYNSYM)
+\item Lire les tables de réimplémentations avec addend explicite (RELA)
+\item Reconnaître de façon exhaustive tous les types (voir type\_strings.h)
+\item Convertir les données au format Big Endian sur une machine Little Endian et vice-versa
+\end{itemize}
+En revanche, il n'est pas capable de faire le café !
+
+Le programme \textbf{fusion} est capable de :
+\begin{itemize}
+\item Fusionner les sections PROGBITS
+\item Fusionner et corriger les tables de symboles
+\item Fusionner et corriger les tables de réimplémentations
+\item Produire un nouveau fichier .o, correspondant à la concaténation des deux fichiers d'entrée
+\end{itemize}
+Mais il n'est pas capable de :
+\begin{itemize}
+\item Adapter les sections propres à ARM (comme .ARM-attributes)
+\item Gérer les addend explicites (RELA)
+\end{itemize}
+
+
+\end{document}
