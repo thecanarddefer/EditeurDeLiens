@@ -1,9 +1,10 @@
 #ifndef _FUSION_H_
 #define _FUSION_H_
 
-#include <elf.h>
-#include "symbolTable.h"
-
+#include "elf.h"
+#include "section.h"
+#include "symbol.h"
+#include "relocation.h"
 
 typedef struct
 {
