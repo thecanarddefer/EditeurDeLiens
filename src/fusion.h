@@ -135,6 +135,15 @@ static void sort_new_symbol_table(Symtab_Struct *st);
 static void write_elf_header_in_file(int fd_out, Elf32_Ehdr *ehdr, Data_fusion *df);
 
 /**
+ * Écrit des sections du premier fichier dans le fichier de sortie
+ *
+ * @param df:     une structure de type Data_fusion initialisée
+ * @param fd_in1: premier fichier en entrée
+ * @param fd_out: fichier de sortie
+ **/
+static void write_only_sections_in_file(Data_fusion *df, int fd1, int fd_out);
+
+/**
  * Concatène des sections dans le fichier de sortie
  *
  * @param df:     une structure de type Data_fusion initialisée

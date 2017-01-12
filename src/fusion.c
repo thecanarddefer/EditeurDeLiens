@@ -56,6 +56,12 @@ int main(int argc, char *argv[])
 	print_debug(BOLD "\n==> Étape de récupération des sections REL(A)\n" RESET);
 	gather_sections(df, secTab1, secTab2, 2, SHT_REL, SHT_RELA);
 
+	/* On recherche les sections spécifiques à ARM */
+	print_debug(BOLD "\n==> Étape de récupération des sections ARM\n" RESET);
+	df->nb_written = df->nb_sections;
+	gather_sections(df, secTab1, secTab2, 3, SHT_ARM_EXIDX, SHT_ARM_PREEMPTMAP, SHT_ARM_ATTRIBUTES);
+	write_only_sections_in_file(df, fd_in1, fd_out);
+
 	/* On calcule les nouveaux indices de section */
 	print_debug(BOLD "\n==> Étape de création des tables de correspondance\n" RESET);
 	df->newsec1 = find_new_section_index(df, secTab1);
@@ -467,6 +473,22 @@ static void write_elf_header_in_file(int fd_out, Elf32_Ehdr *ehdr, Data_fusion *
 	write(fd_out, &ehdr->e_shentsize, sizeof(ehdr->e_shentsize));
 	write(fd_out, &ehdr->e_shnum,     sizeof(ehdr->e_shnum));
 	write(fd_out, &ehdr->e_shstrndx,  sizeof(ehdr->e_shstrndx));
+}
+
+static void write_only_sections_in_file(Data_fusion *df, int fd1, int fd_out)
+{
+	off_t old_offset = df->file_offset;
+	lseek(fd_out, old_offset, SEEK_SET);
+
+	for(int i = df->nb_written; i < df->nb_sections; i++)
+	{
+		/* On écrit la section du premier fichier */
+		print_debug("Écriture de %#x octets de la section %i '%s' à l'offset %#x ", df->f[i]->size, i, df->f[i]->section, old_offset);
+		df->file_offset += write_section_in_file(fd1, fd_out, df->f[i]->ptr_shdr1);
+		print_debug("(taille écrite : %#x => %s)\n", df->file_offset - old_offset, (df->f[i]->size == df->file_offset - old_offset) ? "correcte" : "ERREUR");
+		old_offset = df->file_offset;
+		df->nb_written++;
+	}
 }
 
 static void merge_and_write_sections_in_file(Data_fusion *df, int fd1, int fd2, int fd_out)
