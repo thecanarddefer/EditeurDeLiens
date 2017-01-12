@@ -5,9 +5,12 @@ set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-wrap,read")
 
 # 'elf_common' library
 add_library(elf_common
-	elf_common.c
-	symbolTable.c
-	util.c
+    elf_common.c
+    relocation.c
+    section.c
+    symbol.c
+    util.c
+    disp.c
 )
 
 # 'readelf' binary
