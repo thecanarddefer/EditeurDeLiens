@@ -7,7 +7,7 @@
 #include <sys/stat.h>
 #include <ctype.h>
 #include <stdint.h>
-#include <elf.h>
+#include "elf.h"
 #include "readelf.h"
 #include "elf_common.h"
 #include "symbolTable.h"
