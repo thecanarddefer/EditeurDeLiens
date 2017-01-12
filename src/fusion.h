@@ -21,9 +21,12 @@ typedef struct
 	Elf32_Off offset;
 	unsigned nb_written;
 	off_t file_offset;
+	Elf32_Word symbolNameTable_size;
 	Elf32_Section *newsec1, *newsec2;
 	Fusion **f;
 } Data_fusion;
+
+typedef enum { ONLY1, MERGE, MERGE_NOT_IN } Gather_Mode;
 
 /**
  * Ouvre les deux premiers fichiers passés en argument en lecture
@@ -44,9 +47,10 @@ static int open_files(char *argv[], int *fd_in1, int *fd_in2, int *fd_out);
  * @param secTab1:  une structure de type Section_Table initialisée concernant le premier fichier
  * @param secTab2:  une structure de type Section_Table initialisée concernant le second fichier
  * @param nb_types: le nombre de types à passer en argument
+ * @param mode:     le mode, de type Gather_Mode
  * @param ...:      les types de section à placer dans df
  **/
-static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Table *secTab2, int nb_types, ...);
+static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Table *secTab2, Gather_Mode mode, int nb_types, ...);
 
 /**
  * Donne la correspondance des numéros de sections d'un fichier d'entrée avec
@@ -136,6 +140,15 @@ static void sort_new_symbol_table(Symtab_Struct *st);
 static void write_elf_header_in_file(int fd_out, Elf32_Ehdr *ehdr, Data_fusion *df);
 
 /**
+ * Écrit des sections du premier fichier dans le fichier de sortie
+ *
+ * @param df:     une structure de type Data_fusion initialisée
+ * @param fd_in1: premier fichier en entrée
+ * @param fd_out: fichier de sortie
+ **/
+static void write_only_sections_in_file(Data_fusion *df, int fd1, int fd_out);
+
+/**
  * Concatène des sections dans le fichier de sortie
  *
  * @param df:     une structure de type Data_fusion initialisée
@@ -155,6 +168,24 @@ static void merge_and_write_sections_in_file(Data_fusion *df, int fd1, int fd2, 
  * @retourne le nombre d'octets écrits dans le fichier
  **/
 static ssize_t write_section_in_file(int fd_in, int fd_out, Elf32_Shdr *shdr);
+
+/**
+ * Écrit la nouvelle table des noms de section dans le fichier de sortie
+ *
+ * @param fd_out: fichier de sortie
+ * @param ehdr:   une structure de type Elf32_Ehdr initialisée
+ * @param df:     une structure de type Data_fusion initialisée
+ **/
+static void write_new_section_name_table_in_file(int fd_out, Elf32_Ehdr *ehdr, Data_fusion *df);
+
+/**
+ * Écrit la table des symboles dans le fichier de sortie
+ *
+ * @param fd_out: fichier de sortie
+ * @param df:     une structure de type Data_fusion initialisée
+ * @param st_out: une structure de type Symtab_Struct initialisée
+ **/
+static void write_new_symbol_table_in_file(int fd_out, Data_fusion *df, Symtab_Struct *st_out);
 
 /**
  * Libère la mémoire allouée pour une structure de type Data_fusion
