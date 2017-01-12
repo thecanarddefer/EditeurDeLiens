@@ -6,6 +6,21 @@
 #include "symbol.h"
 #include "relocation.h"
 
+typedef enum
+{
+	PROGBITS,
+	REL,
+	ARM,
+	SKIP,
+	TYPES_COUNT
+} Sections_Type;
+
+typedef struct
+{
+	unsigned start;
+	unsigned end;
+} Range;
+
 typedef struct
 {
 	char section[32];
@@ -22,7 +37,9 @@ typedef struct
 	Elf32_Off offset;
 	unsigned nb_written;
 	off_t file_offset;
-	Elf32_Word symbolNameTable_size;
+	char *sectionNameTable;
+	Range range[TYPES_COUNT];
+	Elf32_Word sectionNameTable_size, symbolNameTable_size;
 	Elf32_Section *newsec1, *newsec2;
 	Fusion **f;
 } Data_fusion;
@@ -47,11 +64,12 @@ static int open_files(char *argv[], int *fd_in1, int *fd_in2, int *fd_out);
  * @param df:       une structure de type Data_fusion
  * @param secTab1:  une structure de type Section_Table initialisée concernant le premier fichier
  * @param secTab2:  une structure de type Section_Table initialisée concernant le second fichier
+ * @parem type:     le genre de type de sections de type Sections_Type
  * @param nb_types: le nombre de types à passer en argument
  * @param mode:     le mode, de type Gather_Mode
  * @param ...:      les types de section à placer dans df
  **/
-static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Table *secTab2, Gather_Mode mode, int nb_types, ...);
+static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Table *secTab2, Sections_Type type, Gather_Mode mode, int nb_types, ...);
 
 /**
  * Calcule les tables de correspondance des numéros de sections d'un fichier d'entrée avec
@@ -149,23 +167,15 @@ static void sort_new_symbol_table(Symtab_Struct *st);
 static void write_elf_header_in_file(int fd_out, Elf32_Ehdr *ehdr, Data_fusion *df);
 
 /**
- * Écrit des sections du premier fichier dans le fichier de sortie
- *
- * @param df:     une structure de type Data_fusion initialisée
- * @param fd_in1: premier fichier en entrée
- * @param fd_out: fichier de sortie
- **/
-static void write_only_sections_in_file(Data_fusion *df, int fd1, int fd_out);
-
-/**
- * Concatène des sections dans le fichier de sortie
+ * Écrit des sections dans le fichier de sortie en fonction de leur type
  *
  * @param df:     une structure de type Data_fusion initialisée
  * @param fd_in1: premier fichier en entrée
  * @param fd_in2: second fichier en entrée
  * @param fd_out: fichier de sortie
+ * @parem type:   le genre de type de sections de type Sections_Type
  **/
-static void merge_and_write_sections_in_file(Data_fusion *df, int fd1, int fd2, int fd_out);
+static void write_given_sections_in_file(Data_fusion *df, int fd1, int fd2, int fd_out, Sections_Type type);
 
 /**
  * Recopie une section depuis un fichier vers un autre fichier

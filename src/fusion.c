@@ -49,27 +49,24 @@ int main(int argc, char *argv[])
 	df->nb_written  = 1;
 
 	/* On crée la nouvelle section n°0 de type NULL */
-	gather_sections(df, secTab1, secTab2, ONLY1, 1, SHT_NULL);
+	gather_sections(df, secTab1, secTab2, SKIP, ONLY1, 1, SHT_NULL);
 
 	/* On crée le fichier de sortie qui contient les sections PROGBITS fusionnées */
 	print_debug(BOLD "==> Étape de fusion des sections PROGBITS\n" RESET);
-	gather_sections(df, secTab1, secTab2, MERGE, 2, SHT_PROGBITS, SHT_NOBITS);
-	df->file_offset = ehdr1->e_ehsize;
-	merge_and_write_sections_in_file(df, fd_in1, fd_in2, fd_out);
+	gather_sections(df, secTab1, secTab2, PROGBITS, MERGE, 2, SHT_PROGBITS, SHT_NOBITS);
 
 	/* On recherche les sections de type REL */
 	print_debug(BOLD "\n==> Étape de récupération des sections REL(A)\n" RESET);
-	gather_sections(df, secTab1, secTab2, MERGE, 2, SHT_REL, SHT_RELA);
+	gather_sections(df, secTab1, secTab2, REL, MERGE, 2, SHT_REL, SHT_RELA);
 
 	/* On recherche les sections spécifiques à ARM */
 	print_debug(BOLD "\n==> Étape de récupération des sections ARM\n" RESET);
 	df->nb_written = df->nb_sections;
-	gather_sections(df, secTab1, secTab2, ONLY1, 3, SHT_ARM_EXIDX, SHT_ARM_PREEMPTMAP, SHT_ARM_ATTRIBUTES);
-	write_only_sections_in_file(df, fd_in1, fd_out);
+	gather_sections(df, secTab1, secTab2, ARM, ONLY1, 3, SHT_ARM_EXIDX, SHT_ARM_PREEMPTMAP, SHT_ARM_ATTRIBUTES);
 
 	/* En enfin, on recherche toutes les autres sections */
 	print_debug(BOLD "\n==> Étape de récupération des autres sections\n" RESET);
-	gather_sections(df, secTab1, secTab2, MERGE_NOT_IN, 8, SHT_NULL, SHT_PROGBITS, SHT_NOBITS,
+	gather_sections(df, secTab1, secTab2, SKIP, MERGE_NOT_IN, 8, SHT_NULL, SHT_PROGBITS, SHT_NOBITS,
 		SHT_REL, SHT_RELA, SHT_ARM_EXIDX, SHT_ARM_PREEMPTMAP, SHT_ARM_ATTRIBUTES);
 
 	/* On calcule les nouveaux indices de section */
@@ -90,7 +87,6 @@ int main(int argc, char *argv[])
 	if((err = merge_and_fix_symbols(df, secTab1, secTab2, st1, st2, st_out)))
 		goto clean;
 	sort_new_symbol_table(st_out);
-	write_new_symbol_table_in_file(fd_out, df, st_out);
 	if(print_debug(BOLD "\n==> Affichage de la fusion des symboles\n" RESET))
 		dump_symtab(st_out);
 
@@ -98,12 +94,14 @@ int main(int argc, char *argv[])
 	print_debug(BOLD "\n==> Étape de fusion des tables de réimplantations\n" RESET);
 	update_relocations_info(df, drel1, drel2);
 	merge_and_fix_relocations(df, fd_in2, secTab1, secTab2, drel1, drel2);
-	//merge_and_write_sections_in_file(df, fd_in1, fd_in2, fd_out);
 
 	print_debug(BOLD "\n==> Étape d'écriture du nouvel en-tête ELF\n" RESET);
-	ehdr1->e_shoff += ehdr2->e_shoff;
-	write_elf_header_in_file(fd_out, ehdr1, df);
+	write_given_sections_in_file(df, fd_in1, fd_in2, fd_out, PROGBITS);
+	write_given_sections_in_file(df, fd_in1, fd_in2, fd_out, REL);
+	write_given_sections_in_file(df, fd_in1, fd_in2, fd_out, ARM);
+	write_new_symbol_table_in_file(fd_out, df, st_out);
 	write_new_section_table_in_file(fd_out, ehdr1, df);
+	write_elf_header_in_file(fd_out, ehdr1, df);
 
 clean:
 	close(fd_in1);
@@ -138,13 +136,14 @@ static int open_files(char *argv[], int *fd_in1, int *fd_in2, int *fd_out)
 	return 0;
 }
 
-static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Table *secTab2, Gather_Mode mode, int nb_types, ...)
+static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Table *secTab2, Sections_Type type, Gather_Mode mode, int nb_types, ...)
 {
 	int ind, j;
 	Elf32_Word *types = malloc(sizeof(Elf32_Word) * nb_types);
-	va_list aptr;
+	df->range[type].start = 0;
 
 	/* Récupération des types recherchés */
+	va_list aptr;
 	va_start(aptr, nb_types);
 	for(int i = 0; i < nb_types; i++)
 		types[i] = va_arg(aptr, Elf32_Word);
@@ -171,8 +170,9 @@ static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Tab
 		df->f[ind]->ptr_shdr1 = secTab1->shdr[i];
 		df->f[ind]->shdr = malloc(sizeof(Elf32_Shdr));
 		memcpy(df->f[ind]->shdr, secTab1->shdr[i], sizeof(Elf32_Shdr));
-		df->f[ind]->shdr->sh_name = i;
-		df->f[ind]->shdr->sh_offset = df->offset;
+
+		if(df->range[type].start == 0)
+			df->range[type].start = ind;
 
 		if((j == secTab2->nb_sections) || (mode == ONLY1))
 		{
@@ -193,7 +193,9 @@ static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Tab
 		}
 
 		strcpy(df->f[ind]->section, get_section_name(secTab1, i));
+		df->f[ind]->shdr->sh_offset = df->offset;
 		df->offset += df->f[ind]->size;
+		df->range[type].end = ind;
 	}
 
 	/* On recherche les sections PROGBITS du second fichier qui ne sont pas présentes dans le premier */
@@ -222,8 +224,9 @@ static void gather_sections(Data_fusion *df, Section_Table *secTab1, Section_Tab
 			df->offset += df->f[ind]->size;
 			df->f[ind]->shdr = malloc(sizeof(Elf32_Shdr));
 			memcpy(df->f[ind]->shdr, secTab2->shdr[i], sizeof(Elf32_Shdr));
-			df->f[ind]->shdr->sh_name = i;
 			df->f[ind]->shdr->sh_offset = df->offset;
+			df->offset += df->f[ind]->size;
+			df->range[type].end = ind;
 		}
 	}
 
@@ -508,20 +511,10 @@ static void sort_new_symbol_table(Symtab_Struct *st)
 
 static void write_elf_header_in_file(int fd_out, Elf32_Ehdr *ehdr, Data_fusion *df)
 {
-	int i;
-	for(i = 0; (i < df->nb_sections) && strcmp(df->f[i]->section, ".shstrtab"); i++);
-	if(i == df->nb_sections)
-	{
-		fprintf(stderr, "FATAL : Il n'y a pas de section .shstrtab !");
-		return;
-	}
+	ehdr->e_shoff = df->offset;
+	ehdr->e_shnum = df->nb_sections;
 
-	ehdr->e_shstrndx = i;
-	//ehdr->e_shoff    = df->f[i]->offset;
-	ehdr->e_shnum    = df->nb_sections;
-
-	print_debug("Il y a %u sections dans le nouveau fichier\n", ehdr->e_shnum);
-	print_debug("La section %i '.shstrtab' sera écrite à l'offset %#x\n", ehdr->e_shstrndx, ehdr->e_shoff);
+	print_debug("Il y a %u sections dans le nouveau fichier ELF créé.\n", ehdr->e_shnum);
 	lseek(fd_out, 0, SEEK_SET);
 	write(fd_out, ehdr->e_ident,      EI_NIDENT);
 	write(fd_out, &ehdr->e_type,      sizeof(ehdr->e_type));
@@ -539,37 +532,20 @@ static void write_elf_header_in_file(int fd_out, Elf32_Ehdr *ehdr, Data_fusion *
 	write(fd_out, &ehdr->e_shstrndx,  sizeof(ehdr->e_shstrndx));
 }
 
-static void write_only_sections_in_file(Data_fusion *df, int fd1, int fd_out)
+static void write_given_sections_in_file(Data_fusion *df, int fd1, int fd2, int fd_out, Sections_Type type)
 {
-	off_t old_offset = df->f[df->nb_written]->offset;
+	off_t old_offset = df->f[ df->range[type].start ]->offset;
 	off_t new_offset = old_offset;
 	lseek(fd_out, old_offset, SEEK_SET);
 
-	for(int i = df->nb_written; i < df->nb_sections; i++)
-	{
-		/* On écrit la section du premier fichier */
-		print_debug("Écriture de la section %2i '%s' à l'offset %#x avec une taille de %#x ", i, df->f[i]->section, old_offset, df->f[i]->size);
-		new_offset += write_section_in_file(fd1, fd_out, df->f[i]->ptr_shdr1);
-		print_debug("(%s)\n", (df->f[i]->size == new_offset - old_offset) ? "correcte" : "ERREUR");
-		old_offset = new_offset;
-		df->nb_written++;
-	}
-}
-
-static void merge_and_write_sections_in_file(Data_fusion *df, int fd1, int fd2, int fd_out)
-{
-	off_t old_offset = df->f[df->nb_written]->offset;
-	off_t new_offset = old_offset;
-	lseek(fd_out, old_offset, SEEK_SET);
-
-	for(int i = df->nb_written; i < df->nb_sections; i++)
+	for(int i = df->range[type].start; i <= df->range[type].end; i++)
 	{
 		print_debug("Écriture de la section %2i '%s' à l'offset %#x avec une taille de %#x ", i, df->f[i]->section, old_offset, df->f[i]->size);
 		if(df->f[i]->ptr_shdr1 != NULL)
 		{
 			/* On écrit la section du premier fichier */
 			new_offset += write_section_in_file(fd1, fd_out, df->f[i]->ptr_shdr1);
-			if (df->f[i]->ptr_shdr2 != NULL) /* On écrit la section du second fichier */
+			if((df->f[i]->ptr_shdr2 != NULL) && (type != ARM)) /* On écrit la section du second fichier */
 				new_offset += write_section_in_file(fd2, fd_out, df->f[i]->ptr_shdr2);
 		}
 		else
@@ -585,30 +561,43 @@ static void merge_and_write_sections_in_file(Data_fusion *df, int fd1, int fd2, 
 
 static ssize_t write_section_in_file(int fd_in, int fd_out, Elf32_Shdr *shdr)
 {
-		ssize_t r, w;
-		unsigned char *buff = malloc(sizeof(unsigned char) * shdr->sh_size);
+	ssize_t r, w;
+	unsigned char *buff = malloc(sizeof(unsigned char) * shdr->sh_size);
 
-		lseek(fd_in, shdr->sh_offset, SEEK_SET);
-		r = read(fd_in, buff, shdr->sh_size);
+	lseek(fd_in, shdr->sh_offset, SEEK_SET);
+	r = read(fd_in, buff, shdr->sh_size);
 
-		w = write(fd_out, buff, shdr->sh_size);
-		free(buff);
+	w = write(fd_out, buff, shdr->sh_size);
+	free(buff);
 
-		if(r != w)
-			fprintf(stderr, "ATTENTION : %lu octets ont été lus depuis le fichier d''entrée, mais uniquement %lu ont été écrits.\n", r, w);
-
-		return w;
+	if(r != w)
+		fprintf(stderr, "ATTENTION : %lu octets ont été lus depuis le fichier d''entrée, mais uniquement %lu ont été écrits.\n", r, w);
+	return w;
 }
 
 static void write_new_section_table_in_file(int fd_out, Elf32_Ehdr *ehdr, Data_fusion *df)
 {
-	off_t old_offset = ehdr->e_shoff;
+	int ind;
+	off_t written = 0;
+	off_t old_offset = df->offset;
 	off_t new_offset = old_offset;
+
+	for(ind = 0; strcmp(df->f[ind]->section, ".shstrtab"); ind++);
+	ehdr->e_shstrndx = ind;
+
+	print_debug("Écriture de la table des noms de section dans le fichier à l'offset %#x\n", df->f[ind]->offset);
+	lseek(fd_out, df->f[ind]->offset, SEEK_SET);
+	for(int i = 0; i < df->nb_sections; i++)
+	{
+		df->f[i]->shdr->sh_name = written;
+		written += write(fd_out, df->f[i]->section, strlen(df->f[i]->section) + 1);
+	}
+	df->f[ind]->shdr->sh_size = written;
 
 	for(int i = 0; i < df->nb_sections; i++)
 	{
-		print_debug("Écriture de la section n°%2i '%s' dans le fichier à l'offset %#x ", i, df->f[i]->section, old_offset);
-		lseek(fd_out, ehdr->e_shoff + i * ehdr->e_shentsize, SEEK_SET);
+		print_debug("Écriture de l'en-tête de section n°%2i '%s' dans le fichier à l'offset %#x ", i, df->f[i]->section, old_offset);
+		lseek(fd_out, df->offset + i * ehdr->e_shentsize, SEEK_SET);
 		new_offset += write(fd_out, &df->f[i]->shdr->sh_name,      sizeof(df->f[i]->shdr->sh_name));
 		new_offset += write(fd_out, &df->f[i]->shdr->sh_type,      sizeof(df->f[i]->shdr->sh_type));
 		new_offset += write(fd_out, &df->f[i]->shdr->sh_flags,     sizeof(df->f[i]->shdr->sh_flags));
@@ -622,23 +611,17 @@ static void write_new_section_table_in_file(int fd_out, Elf32_Ehdr *ehdr, Data_f
 		print_debug("(%s)\n", (sizeof(Elf32_Shdr) == new_offset - old_offset) ? "correct" : "ERREUR");
 		old_offset = new_offset;
 	}
-
-	print_debug("Écriture de la table des noms de section à l'offset %#x\n", df->f[ehdr->e_shstrndx]->offset);
-	lseek(fd_out, df->f[ehdr->e_shstrndx]->offset, SEEK_SET);
-	for(int i = 0; i < df->nb_sections; i++)
-		df->file_offset += write(fd_out, df->f[i]->section, strlen(df->f[i]->section) + 1);
 }
 
 static void write_new_symbol_table_in_file(int fd_out, Data_fusion *df, Symtab_Struct *st_out)
 {
-	int i;
-	for(i = 0; strcmp(df->f[i]->section, ".symtab"); i++);
-
-	off_t old_offset = df->f[i]->offset;
+	int ind;
+	for(ind = 0; strcmp(df->f[ind]->section, ".symtab"); ind++);
+	off_t old_offset = df->f[ind]->offset;
 	off_t new_offset = old_offset;
 	lseek(fd_out, old_offset, SEEK_SET);
 
-	for(i = 0; i < st_out->nbSymbol; i++)
+	for(int i = 0; i < st_out->nbSymbol; i++)
 	{
 		print_debug("Écriture du symbole n°%2i '%s' dans le fichier à l'offset %#x ", i, get_symbol_name(st_out->tab, st_out->symbolNameTable, i), old_offset);
 		new_offset += write(fd_out, &st_out->tab[i]->st_name,  sizeof(st_out->tab[i]->st_name));
@@ -650,9 +633,14 @@ static void write_new_symbol_table_in_file(int fd_out, Data_fusion *df, Symtab_S
 		print_debug("(%s)\n", (sizeof(Elf32_Sym) == new_offset - old_offset) ? "correct" : "ERREUR");
 		old_offset = new_offset;
 	}
+	df->f[ind]->shdr->sh_size = st_out->nbSymbol * sizeof(Elf32_Sym);
 
-	print_debug("Écriture de la table des noms de symboles '%s' dans le fichier à l'offset %#x\n", st_out->name, df->file_offset);
-	df->file_offset += write(fd_out, &st_out->symbolNameTable, df->symbolNameTable_size);
+	for(ind = 0; strcmp(df->f[ind]->section, ".strtab"); ind++);
+	print_debug("Écriture de la table des noms de symboles dans le fichier à l'offset %#x\n", df->f[ind]->offset);
+	lseek(fd_out, df->f[ind]->offset, SEEK_SET);
+	for(int i = 0; i < df->symbolNameTable_size; i += strlen(&(st_out->symbolNameTable[i])) + 1)
+		write(fd_out, &(st_out->symbolNameTable[i]), strlen(&(st_out->symbolNameTable[i])) + 1);
+	df->f[ind]->shdr->sh_size = df->symbolNameTable_size;
 }
 
 static void destroy_data_fusion(Data_fusion *df)
