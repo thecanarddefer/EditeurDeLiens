@@ -418,7 +418,7 @@ static void merge_and_fix_relocations(Data_fusion *df, int fd2, int fd_out, Sect
 			drel1->e_rel[j] += drel2->e_rel[i];
 			drel1->a_rel[j]  = df->f[  df->newsec2[ drel2->i_rel[i] ]  ]->shdr->sh_offset;
 			drel1->rel[j]    = realloc(drel1->rel[j], sizeof(Elf32_Rel*) * drel1->e_rel[j]);
-			Elf32_Sword addend[1<<20];
+			Elf32_Sword addend[1<<16];
 			for(int k = 0; k < drel2->e_rel[i]; k++)
 			{
 				drel1->rel[j][ind] = malloc(sizeof(Elf32_Rel));
@@ -667,6 +667,8 @@ static void write_new_relocation_table_in_file(int fd_out, Data_Rel *drel, unsig
 
 static void destroy_data_fusion(Data_fusion *df)
 {
+	for(int i = 0; i < df->nb_sections; i++)
+		free(df->f[i]->shdr);
 	for(int i = 0; i < df->nb_sections; i++)
 		free(df->f[i]);
 	free(df->f);
