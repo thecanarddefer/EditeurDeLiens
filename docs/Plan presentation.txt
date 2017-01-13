@@ -5,8 +5,12 @@ COMMUN (1 fichier/étape) :
 - Fonctions de lecture
 - (Des fonctions utilitaires intermédiaires)
 - Des fonctions de libération
+- Beaucoup de types reconnus
+- Big/Little Endian
+- Pas de fuites mémoire/saut conditionnels/lecture ou écriture invalide
 
 READELF :
+- Options courtes/longues/multi + possibilité plusieurs fichiers
 - EHDR
 - SHDR
 - HEXDUMP
