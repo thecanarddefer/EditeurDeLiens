@@ -92,12 +92,12 @@ int main(int argc, char *argv[])
 
 	/* On met à jour le champ r_info des symboles des tables de réimplantations */
 	print_debug(BOLD "\n==> Étape de fusion des tables de réimplantations\n" RESET);
-	update_relocations_info(df, drel1, drel2);
-	merge_and_fix_relocations(df, fd_in2, secTab1, secTab2, drel1, drel2);
+	update_relocations_info(df, drel1, drel2, st1, st2);
+	merge_and_fix_relocations(df, fd_in2, fd_out, secTab1, secTab2, drel1, drel2);
 
+	/* On écrit enfin le nouveau fichier */
 	print_debug(BOLD "\n==> Étape d'écriture du nouvel en-tête ELF\n" RESET);
 	write_given_sections_in_file(df, fd_in1, fd_in2, fd_out, PROGBITS);
-	write_given_sections_in_file(df, fd_in1, fd_in2, fd_out, REL);
 	write_given_sections_in_file(df, fd_in1, fd_in2, fd_out, ARM);
 	write_new_symbol_table_in_file(fd_out, df, st_out);
 	write_new_section_table_in_file(fd_out, ehdr1, df);
@@ -388,20 +388,21 @@ static int merge_and_fix_symbols(Data_fusion *df, Section_Table *secTab1, Sectio
 	return 0;
 }
 
-static void update_relocations_info_for_one_file(Data_Rel *drel, Elf32_Section *newsec)
+static void update_relocations_info_for_one_file(Data_Rel *drel, Elf32_Section *newsec, symbolTable *st)
 {
 	for(int i = 0; i < drel->nb_rel; i++)
 		for(int j = 0; j < drel->e_rel[i]; j++)
-			drel->rel[i][j]->r_info = ELF32_R_INFO(newsec[ ELF32_R_SYM(drel->rel[i][j]->r_info) ], ELF32_R_TYPE(drel->rel[i][j]->r_info));
+				drel->rel[i][j]->r_info = ELF32_R_INFO(newsec[  st->symtab->tab[ ELF32_R_SYM(drel->rel[i][j]->r_info) ]->st_shndx  ],
+				                                       ELF32_R_TYPE(drel->rel[i][j]->r_info));
 }
 
-static void update_relocations_info(Data_fusion *df, Data_Rel *drel1, Data_Rel *drel2)
+static void update_relocations_info(Data_fusion *df, Data_Rel *drel1, Data_Rel *drel2, symbolTable *st1, symbolTable *st2)
 {
-	update_relocations_info_for_one_file(drel1, df->newsec1);
-	update_relocations_info_for_one_file(drel2, df->newsec2);
+	update_relocations_info_for_one_file(drel1, df->newsec1, st1);
+	update_relocations_info_for_one_file(drel2, df->newsec2, st2);
 }
 
-static void merge_and_fix_relocations(Data_fusion *df, int fd2, Section_Table *secTab1, Section_Table *secTab2, Data_Rel *drel1, Data_Rel *drel2)
+static void merge_and_fix_relocations(Data_fusion *df, int fd2, int fd_out, Section_Table *secTab1, Section_Table *secTab2, Data_Rel *drel1, Data_Rel *drel2)
 {
 	int ind, j;
 
@@ -415,13 +416,15 @@ static void merge_and_fix_relocations(Data_fusion *df, int fd2, Section_Table *s
 			print_debug("Concatène la section REL %2i '%s' avec celle du premier fichier\n", i, get_section_name(secTab2, drel2->i_rel[i]));
 			ind = drel1->e_rel[j];
 			drel1->e_rel[j] += drel2->e_rel[i];
+			drel1->a_rel[j]  = df->f[  df->newsec2[ drel2->i_rel[i] ]  ]->shdr->sh_offset;
 			drel1->rel[j]    = realloc(drel1->rel[j], sizeof(Elf32_Rel*) * drel1->e_rel[j]);
+			Elf32_Sword addend[1<<20];
 			for(int k = 0; k < drel2->e_rel[i]; k++)
 			{
 				drel1->rel[j][ind] = malloc(sizeof(Elf32_Rel));
 				memcpy(drel1->rel[j][ind], drel2->rel[i][k], sizeof(Elf32_Rel));
 				drel1->rel[j][ind]->r_offset += secTab1->shdr[  secTab1->shdr[ drel1->i_rel[j] ]->sh_info  ]->sh_size;
-				Elf32_Sword addend;
+
 				lseek(fd2, secTab2->shdr[ drel2->i_rel[i] ]->sh_offset + drel2->rel[i][k]->r_offset, SEEK_SET);
 				read(fd2, &addend, sizeof(Elf32_Sword));
 				switch(ELF32_R_TYPE(drel2->rel[i][k]->r_info))
@@ -431,16 +434,22 @@ static void merge_and_fix_relocations(Data_fusion *df, int fd2, Section_Table *s
 					case R_ARM_ABS16:
 					case R_ARM_ABS12:
 					case R_ARM_ABS8:
-						addend += df->f[    df->newsec2[  secTab2->shdr[ drel2->i_rel[i] ]->sh_link  ]    ]->ptr_shdr1->sh_size;
+						addend[k] = df->f[    df->newsec2[  secTab2->shdr[ drel2->i_rel[i] ]->sh_link  ]    ]->ptr_shdr1->sh_size;
 						break;
 					case R_ARM_JUMP24:
 					case R_ARM_CALL:
-						addend += (df->f[    df->newsec2[  secTab2->shdr[ drel2->i_rel[i] ]->sh_link  ]    ]->ptr_shdr1->sh_size >> 2);
+						addend[k] = (df->f[    df->newsec2[  secTab2->shdr[ drel2->i_rel[i] ]->sh_link  ]    ]->ptr_shdr1->sh_size >> 2);
 						break;
 					default:
 						fprintf(stderr, "ATTENTION : le type de réimplémentation %i n'est pas pris en charge !\n", ELF32_R_TYPE(drel2->rel[i][k]->r_info));
 				}
 				ind++;
+			}
+			write_new_relocation_table_in_file(fd_out, drel1, j);
+			for(int k = 0; k < drel2->e_rel[i]; k++)
+			{
+				lseek(fd_out, df->f[  df->newsec2[ drel2->i_rel[i] ]  ]->shdr->sh_offset + drel2->rel[i][k]->r_offset, SEEK_SET);
+				write(fd_out, &addend[k], sizeof(Elf32_Sword));
 			}
 		}
 		else
@@ -462,7 +471,9 @@ static void merge_and_fix_relocations(Data_fusion *df, int fd2, Section_Table *s
 				drel1->rel[ind][k] = malloc(sizeof(Elf32_Rel));
 				memcpy(drel1->rel[ind][k], drel2->rel[i][k], sizeof(Elf32_Rel));
 			}
+			write_new_relocation_table_in_file(fd_out, drel1, ind);
 		}
+
 	}
 }
 
@@ -641,6 +652,17 @@ static void write_new_symbol_table_in_file(int fd_out, Data_fusion *df, Symtab_S
 	for(int i = 0; i < df->symbolNameTable_size; i += strlen(&(st_out->symbolNameTable[i])) + 1)
 		write(fd_out, &(st_out->symbolNameTable[i]), strlen(&(st_out->symbolNameTable[i])) + 1);
 	df->f[ind]->shdr->sh_size = df->symbolNameTable_size;
+}
+
+static void write_new_relocation_table_in_file(int fd_out, Data_Rel *drel, unsigned index)
+{
+	print_debug("Écriture de la table de réimplémentations dans le fichier à l'offset %#x\n", drel->a_rel[index]);
+	lseek(fd_out, drel->a_rel[index], SEEK_SET);
+	for(int i = 0; i < drel->e_rel[index]; i++)
+	{
+		write(fd_out, &drel->rel[index][i]->r_offset, sizeof(drel->rel[index][i]->r_offset));
+		write(fd_out, &drel->rel[index][i]->r_info,   sizeof(drel->rel[index][i]->r_info));
+	}
 }
 
 static void destroy_data_fusion(Data_fusion *df)

@@ -132,23 +132,26 @@ static int merge_and_fix_symbols(Data_fusion *df, Section_Table *secTab1, Sectio
 /**
  * Met à jour le champ r_info des tables de réimplantations
  *
- * @param drel1: une structure de type Data_Rel initialisée correspondant premier fichier
- * @param drel2: une structure de type Data_Rel initialisée correspondant second fichier
- * @param df:    une structure de type Data_fusion initialisée
+ * @param df:     une structure de type Data_fusion initialisée
+ * @param drel1:  une structure de type Data_Rel initialisée correspondant premier fichier
+ * @param drel2:  une structure de type Data_Rel initialisée correspondant second fichier
+ * @param st1:     une structure de type symbolTable initialisée correspondant au premier fichier
+ * @param st2:     une structure de type symbolTable initialisée correspondant au second fichier
  **/
-static void update_relocations_info(Data_fusion *df, Data_Rel *drel1, Data_Rel *drel2);
+static void update_relocations_info(Data_fusion *df, Data_Rel *drel1, Data_Rel *drel2, symbolTable *st1, symbolTable *st2);
 
 /**
  * Fusionne deux tables de réimplantations tout en corrigeant les symboles
  *
  * @param df:      une structure de type Data_fusion initialisée
  * @param fd2:     le descripteur de fichier du second fichier
+ * @param fd_out:  le descripteur de fichier du fichier de sortie
  * @param secTab1: une structure de type Section_Table initialisée correspondant au premier fichier
  * @param secTab2: une structure de type Section_Table initialisée correspondant au second fichier
  * @param drel1:   une structure de type Data_Rel initialisée  correspondant au premier fichier
  * @param drel1:   une structure de type Data_Rel initialisée  correspondant au second fichier
  **/
-static void merge_and_fix_relocations(Data_fusion *df, int fd2, Section_Table *secTab1, Section_Table *secTab2, Data_Rel *drel1, Data_Rel *drel2);
+static void merge_and_fix_relocations(Data_fusion *df, int fd2, int fd_out, Section_Table *secTab1, Section_Table *secTab2, Data_Rel *drel1, Data_Rel *drel2);
 
 /**
  * Trie une table des symboles
@@ -205,6 +208,15 @@ static void write_new_section_table_in_file(int fd_out, Elf32_Ehdr *ehdr, Data_f
  * @param st_out: une structure de type Symtab_Struct initialisée
  **/
 static void write_new_symbol_table_in_file(int fd_out, Data_fusion *df, Symtab_Struct *st_out);
+
+/**
+ * Écrit une table de réimplantations dans le fichier de sortie
+ *
+ * @param fd_out: fichier de sortie
+ * @param drel:   une structure de type Data_Rel initialisée
+ * @parem index:  l'indice de la table
+ **/
+static void write_new_relocation_table_in_file(int fd_out, Data_Rel *drel, unsigned index);
 
 /**
  * Libère la mémoire allouée pour une structure de type Data_fusion
