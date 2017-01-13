@@ -17,9 +17,12 @@ add_library(files OBJECT file1.c file2.c)
 add_executable(fusion_result $<TARGET_OBJECTS:files> eabi-none-lib.c)
 target_link_libraries(fusion_result)
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mbig-endian")
+add_library(bigendian OBJECT bigendian.c)
+
 # Copy object files in this directory
 add_custom_command(TARGET fusion_result
 	POST_BUILD
-	COMMAND cp -v "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/files.dir/*.o" "${CMAKE_CURRENT_SOURCE_DIR}/"
+	COMMAND cp -v "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/*.dir/*.o" "${CMAKE_CURRENT_SOURCE_DIR}/"
 	COMMENT "Copy object files into ${CMAKE_CURRENT_SOURCE_DIR}/ directory"
 )
