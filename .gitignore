@@ -39,4 +39,5 @@ fusion
 fusion_result
 !hello.o
 !vfscanf.o
+!bigendian.o
 build
